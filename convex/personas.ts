@@ -123,6 +123,128 @@ export const getRankedSections = query({
   },
 });
 
+// Query: composite behavioral scoring — the "real" ranking engine
+// score = (0.5 × totalDwellMs) + (0.3 × avgScrollDepth × 1000) + (0.2 × clickCount × 5000)
+// multiplied by a recency factor:  1.0 if last hour, 0.6 if last 24h, 0.2 otherwise
+export const getRankedSectionsByScore = query({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    if (!userId) return [];
+
+    const ALL_SECTIONS = ["stats", "activity", "oracle", "notifications"];
+    const now = Date.now();
+    const oneHourAgo = now - 3_600_000;
+    const oneDayAgo  = now - 86_400_000;
+
+    // Fetch last 100 events ordered by ts desc
+    const events = await ctx.db
+      .query("events")
+      .withIndex("by_user_ts", (q) => q.eq("userId", userId))
+      .order("desc")
+      .take(100);
+
+    // Aggregate per section
+    const sectionData: Record<
+      string,
+      { totalDwell: number; scrollSum: number; scrollCount: number; clicks: number; lastTs: number }
+    > = {};
+
+    for (const e of events) {
+      if (!sectionData[e.section]) {
+        sectionData[e.section] = { totalDwell: 0, scrollSum: 0, scrollCount: 0, clicks: 0, lastTs: 0 };
+      }
+      const d = sectionData[e.section];
+      d.totalDwell += e.dwellMs ?? 0;
+      d.scrollSum  += e.scrollDepth ?? 0;
+      d.scrollCount++;
+      if (e.action === "click") d.clicks++;
+      if (e.ts > d.lastTs) d.lastTs = e.ts;
+    }
+
+    const scored = ALL_SECTIONS.map((section) => {
+      const d = sectionData[section];
+      if (!d) return { section, score: 0 };
+
+      const avgScroll    = d.scrollCount > 0 ? d.scrollSum / d.scrollCount : 0;
+      const recencyFactor =
+        d.lastTs >= oneHourAgo ? 1.0 :
+        d.lastTs >= oneDayAgo  ? 0.6 : 0.2;
+
+      const rawScore =
+        (0.5 * d.totalDwell) +
+        (0.3 * avgScroll * 1000) +
+        (0.2 * d.clicks * 5000);
+
+      return { section, score: Math.round(rawScore * recencyFactor) };
+    });
+
+    return scored
+      .sort((a, b) => b.score - a.score)
+      .map((s) => s.section);
+  },
+});
+
+// Query: dynamic AI insight sentence — used in AIInsightCard and AI ORACLE panel
+export const getAIInsight = query({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    if (!userId) return null;
+
+    const persona = await ctx.db
+      .query("personas")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    const slots = await ctx.db
+      .query("timeSlots")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    if (!persona || slots.length === 0) {
+      return "Observing your workflow. Sections will adapt after a few interactions.";
+    }
+
+    // Find the peak hour
+    const hourTotals: Record<number, number> = {};
+    for (const s of slots) {
+      hourTotals[s.hour] = (hourTotals[s.hour] ?? 0) + s.score;
+    }
+    const peakHour = Object.entries(hourTotals)
+      .sort(([, a], [, b]) => b - a)[0]?.[0];
+
+    const peakHourNum = peakHour ? parseInt(peakHour) : null;
+    const peakStr = peakHourNum !== null
+      ? (peakHourNum < 12 ? `${peakHourNum}am` : `${peakHourNum === 12 ? "12pm" : `${peakHourNum - 12}pm`}`)
+      : null;
+
+    // Top section from slots
+    const sectionTotals: Record<string, number> = {};
+    for (const s of slots) {
+      sectionTotals[s.section] = (sectionTotals[s.section] ?? 0) + s.score;
+    }
+    const topSection = Object.entries(sectionTotals)
+      .sort(([, a], [, b]) => b - a)[0]?.[0] ?? "Stats";
+
+    const sectionLabels: Record<string, string> = {
+      stats: "Your Metrics",
+      activity: "Activity Chart",
+      oracle: "AI Oracle",
+      notifications: "Notifications",
+    };
+
+    const label = sectionLabels[topSection] ?? topSection;
+    const personaCtx =
+      persona.type === "Power User" ? "deep focus detected" :
+      persona.type === "Quick Scanner" ? "fast-scan pattern active" :
+      "exploratory browsing detected";
+
+    if (peakStr) {
+      return `${label} is your peak section around ${peakStr}. ${personaCtx.charAt(0).toUpperCase() + personaCtx.slice(1)} — "${label}" is prioritized now.`;
+    }
+    return `${label} receives your highest engagement. ${personaCtx.charAt(0).toUpperCase() + personaCtx.slice(1)}.`;
+  },
+});
+
 // Query: get all timeSlots for heatmap — used in Analytics page
 export const getAllTimeSlots = query({
   args: { userId: v.string() },
@@ -185,5 +307,53 @@ export const getRecentEvents = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .order("desc")
       .take(limit ?? 15);
+  },
+});
+
+// Query: events per day for last 7 days — drives the mini bar chart
+export const getWeeklyEngagement = query({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    if (!userId) return [];
+    const events = await ctx.db
+      .query("events")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const counts: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0 };
+
+    for (const e of events) {
+      const dow = e.dayOfWeek ?? new Date(e.ts).getDay();
+      counts[dow] = (counts[dow] ?? 0) + 1;
+    }
+
+    // Return Mon → Sun order (starting index 1)
+    return [1, 2, 3, 4, 5, 6, 0].map((dow) => ({
+      day: DAY_LABELS[dow],
+      count: counts[dow] ?? 0,
+    }));
+  },
+});
+
+// Query: dwell time per hour for today — drives the 24-hour heatmap strip
+export const getTodaysHourlyActivity = query({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    if (!userId) return new Array(24).fill(0) as number[];
+
+    const todayHour = new Date();
+    const slots = await ctx.db
+      .query("timeSlots")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const hourTotals = new Array(24).fill(0) as number[];
+    for (const slot of slots) {
+      if (slot.hour >= 0 && slot.hour < 24) {
+        hourTotals[slot.hour] += slot.score;
+      }
+    }
+    return hourTotals;
   },
 });

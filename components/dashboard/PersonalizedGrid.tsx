@@ -1,9 +1,11 @@
 "use client";
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import { useQuery } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Reorder, AnimatePresence, motion } from "framer-motion";
 import { useUser } from "@clerk/nextjs";
+import { toast } from "sonner";
+import { GripVertical, Sparkles, Brain } from "lucide-react";
 import { useConfusionDetect } from "@/hooks/useConfusionDetect";
 import { useTracker } from "@/hooks/useTracker";
 
@@ -15,7 +17,7 @@ import { NotificationsBlock as NotificationsSection } from "./NotificationsBlock
 import { ConfusionAlert } from "./ConfusionAlert";
 import { AIToast } from "@/components/ui/AIToast";
 
-// ── Types ──────────────────────────────────────────────────────────────────
+// ── Constants ───────────────────────────────────────────────────────────────
 const SECTION_MAP: Record<
   string,
   React.ComponentType<{ userId: string; isTop: boolean }>
@@ -28,24 +30,29 @@ const SECTION_MAP: Record<
 
 const DEFAULT_ORDER = ["stats", "activity", "oracle", "notifications"];
 
-// Section-label map for readable narration prompts
 const SECTION_LABELS: Record<string, string> = {
   stats: "Your Metrics",
-  activity: "Activity Feed",
-  oracle: "Time Oracle",
+  activity: "Activity Chart",
+  oracle: "AI Oracle",
   notifications: "Notifications",
 };
 
-// ── Loading skeleton ───────────────────────────────────────────────────────
-function SectionSkeleton() {
+// How frequently (ms) we re-check if the server score order has changed
+const SCORE_POLL_INTERVAL = 20_000; // 20 seconds
+
+// ── Loading skeleton ────────────────────────────────────────────────────────
+function SectionSkeleton({ index }: { index: number }) {
   return (
-    <div
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.07 }}
       style={{
-        height: 140,
+        height: 160,
         borderRadius: 20,
         background: "var(--bg-secondary)",
         border: "0.5px solid var(--border)",
-        marginBottom: 16,
+        marginBottom: 14,
         overflow: "hidden",
         position: "relative",
       }}
@@ -58,45 +65,108 @@ function SectionSkeleton() {
             "linear-gradient(90deg, transparent 0%, rgba(var(--fg-rgb),0.04) 50%, transparent 100%)",
         }}
         animate={{ x: ["-100%", "100%"] }}
-        transition={{ duration: 1.4, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
       />
-    </div>
+    </motion.div>
   );
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────
+// ── "Learning" pulsing indicator ───────────────────────────────────────────
+function LearningBadge() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.85 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.85 }}
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "5px 12px",
+        background: "rgba(0,113,227,0.1)",
+        border: "0.5px solid rgba(0,113,227,0.25)",
+        borderRadius: "980px",
+        fontSize: "11px",
+        fontWeight: 600,
+        color: "#2997ff",
+        letterSpacing: "0.3px",
+        marginBottom: 12,
+      }}
+    >
+      <motion.div
+        style={{ width: 6, height: 6, borderRadius: "50%", background: "#0071e3" }}
+        animate={{ scale: [1, 1.5, 1], opacity: [1, 0.4, 1] }}
+        transition={{ duration: 1.4, repeat: Infinity }}
+      />
+      <Brain size={11} />
+      Analyzing your behavior patterns...
+    </motion.div>
+  );
+}
+
+// ── Main Component ──────────────────────────────────────────────────────────
 export function PersonalizedGrid({ userId }: { userId: string }) {
-  // Track the dashboard section itself
   useTracker({ section: "dashboard" });
 
-  const { user } = useUser();
-  const currentHour = new Date().getHours();
+  // ── Convex data ──────────────────────────────────────────────────────────
+  // Use the composite scoring query as the authoritative ranking source
+  const scoredSections = useQuery(api.personas.getRankedSectionsByScore, { userId });
+  const persona       = useQuery(api.personas.getPersona, { userId });
+  const seedDemoData  = useMutation(api.seed.seedDemoData);
 
-  // Live ranked order from Convex (undefined = loading)
-  const rankedSections = useQuery(api.personas.getRankedSections, {
-    userId,
-    hour: currentHour,
-  });
-
-  // Live persona for narration context
-  const persona = useQuery(api.personas.getPersona, { userId });
-
-  // ── Local state ──────────────────────────────────────────────────────────
-  const [sections, setSections] = useState<string[]>(DEFAULT_ORDER);
-  const [toast, setToast] = useState<string | null>(null);
+  // ── Local UI state ───────────────────────────────────────────────────────
+  const [order, setOrder] = useState<string[]>(DEFAULT_ORDER);
+  const [aiToastMessage, setAiToastMessage] = useState<string | null>(null);
   const [isNarrating, setIsNarrating] = useState(false);
+  const [isLearning, setIsLearning] = useState(false);
+  const [hoveredSection, setHoveredSection] = useState<string | null>(null);
+  const [lastAdaptedTs, setLastAdaptedTs] = useState<number | null>(null);
 
-  // Track the previous top section so we fire narration only on genuine changes
   const prevTopRef = useRef<string | null>(null);
-  // Guard: don't narrate on the initial mount hydration
   const hasHydratedRef = useRef(false);
+  // Holds the latest scored order from server (updated every 20s)
+  const latestServerOrderRef = useRef<string[]>(DEFAULT_ORDER);
 
+  const currentHour = new Date().getHours();
   const { isConfused, dismiss } = useConfusionDetect({ idleThresholdMs: 22000, scrollThreshold: 3 });
 
-  // ── Narration call ───────────────────────────────────────────────────────
+  // ── Auto-seed on first login ─────────────────────────────────────────────
+  useEffect(() => {
+    if (persona === null && !hasHydratedRef.current) {
+      seedDemoData({ userId }).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persona]);
+
+  // ── Keyboard shortcut: Ctrl+Shift+D = force demo seed ───────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === "D") {
+        e.preventDefault();
+        seedDemoData({ userId })
+          .then(() => toast.success("Demo data seeded!", { description: "Interacting will now reorder widgets." }))
+          .catch(() => {});
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [userId, seedDemoData]);
+
+  // ── Narration helper ─────────────────────────────────────────────────────
   const fireNarration = useCallback(
     async (prevSection: string, newSection: string) => {
       if (isNarrating) return;
+
+      const optimisticMsg = `${SECTION_LABELS[newSection] ?? newSection} promoted based on dwell time and scroll depth this session.`;
+      setAiToastMessage(optimisticMsg);
+      setLastAdaptedTs(Date.now());
+
+      toast.success("Layout adapted", {
+        description: optimisticMsg,
+        icon: <Sparkles size={14} color="#0071e3" />,
+        duration: 6000,
+      });
+
       setIsNarrating(true);
       try {
         const avgDwellSec = Math.round((persona?.dwellAvg ?? 0) / 1000);
@@ -107,18 +177,17 @@ export function PersonalizedGrid({ userId }: { userId: string }) {
             persona: persona?.type ?? "Explorer",
             topSection: SECTION_LABELS[newSection] ?? newSection,
             previousTop: SECTION_LABELS[prevSection] ?? prevSection,
-            reason: `User spent avg ${avgDwellSec}s per session, most interactions at hour ${currentHour}`,
+            reason: `Avg dwell ${avgDwellSec}s, most interactions at hour ${currentHour}`,
           }),
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.narration) setToast(data.narration);
+          if (data.narration && data.narration.length > 10) {
+            setAiToastMessage(data.narration);
+          }
         }
       } catch {
-        // Fallback toast – never leave the user without feedback
-        setToast(
-          `${SECTION_LABELS[newSection] ?? newSection} moved up based on your session patterns.`
-        );
+        // keep optimistic message
       } finally {
         setIsNarrating(false);
       }
@@ -126,71 +195,93 @@ export function PersonalizedGrid({ userId }: { userId: string }) {
     [persona, currentHour, isNarrating]
   );
 
-  // ── Sync Convex → local order with change detection ─────────────────────
+  // ── Handle incoming server order: hydrate on first load, then only
+  //    apply if the top section genuinely changed (no jitter) ───────────────
   useEffect(() => {
-    if (!rankedSections || rankedSections.length === 0) return;
+    if (!scoredSections || scoredSections.length === 0) return;
 
-    const newTop = rankedSections[0];
-    const prevTop = prevTopRef.current;
+    latestServerOrderRef.current = scoredSections.slice(0, 4);
 
-    // On first real data arrival, just hydrate — don't narrate
     if (!hasHydratedRef.current) {
       hasHydratedRef.current = true;
-      prevTopRef.current = newTop;
-      setSections(rankedSections.slice(0, 4));
+      prevTopRef.current = scoredSections[0];
+      setOrder(scoredSections.slice(0, 4));
       return;
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scoredSections?.join(",")]);
 
-    // Only act when the ranked order actually changed
-    const currentKey = sections.join(",");
-    const incomingKey = rankedSections.slice(0, 4).join(",");
-    if (currentKey === incomingKey) return;
+  // ── Periodic score re-check every 20 seconds ────────────────────────────
+  // This is the engine that makes the reorder feel "earned" by real behavior,
+  // NOT by clicking. Only applies the server order when signal is strong enough.
+  useEffect(() => {
+    const tick = () => {
+      const serverOrder = latestServerOrderRef.current;
+      if (!serverOrder || serverOrder.length === 0) return;
 
-    setSections(rankedSections.slice(0, 4));
+      const serverTop = serverOrder[0];
+      const localTop = order[0];
 
-    // Fire narration only when the TOP section changed
-    if (prevTop !== null && newTop !== prevTop) {
-      fireNarration(prevTop, newTop);
-    }
+      if (serverTop !== localTop) {
+        // Show "learning" pulse for 2s then apply new order
+        setIsLearning(true);
+        setTimeout(() => {
+          setIsLearning(false);
+          setOrder(serverOrder);
+          if (prevTopRef.current !== serverTop) {
+            fireNarration(localTop, serverTop);
+            prevTopRef.current = serverTop;
+          }
+        }, 2000);
+      }
+    };
 
-    prevTopRef.current = newTop;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rankedSections?.join(",")]);
+    const interval = setInterval(tick, SCORE_POLL_INTERVAL);
+    return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order]);
 
   // ── Manual drag handler ──────────────────────────────────────────────────
   const handleManualReorder = useCallback(
     (newOrder: string[]) => {
-      const prevTop = sections[0];
+      const prevTop = order[0];
       const newTop = newOrder[0];
-      setSections(newOrder);
+      setOrder(newOrder);
       if (newTop !== prevTop) {
         prevTopRef.current = newTop;
         fireNarration(prevTop, newTop);
       }
     },
-    [sections, fireNarration]
+    [order, fireNarration]
   );
 
   // ── Render ───────────────────────────────────────────────────────────────
-  const isLoading = rankedSections === undefined;
+  const isLoading = scoredSections === undefined;
 
   return (
-    <div style={{ padding: "0 0 40px" }}>
-      {/* AI Narration Toast */}
+    <div>
+      {/* AI narration overlay toast */}
       <AnimatePresence>
-        {toast && <AIToast message={toast} onDismiss={() => setToast(null)} />}
+        {aiToastMessage && (
+          <AIToast message={aiToastMessage} onDismiss={() => setAiToastMessage(null)} />
+        )}
       </AnimatePresence>
 
-      {/* Confusion Help Modal */}
+      {/* Confusion modal */}
       <AnimatePresence>
         {isConfused && <ConfusionAlert onDismiss={dismiss} />}
       </AnimatePresence>
 
-      {/* Loading state — 4 skeletons */}
+      {/* Learning indicator */}
+      <AnimatePresence>
+        {isLearning && <LearningBadge />}
+      </AnimatePresence>
+
+      {/* Loading skeletons */}
       {isLoading && (
         <div>
-          {DEFAULT_ORDER.map((id) => (
-            <SectionSkeleton key={id} />
+          {DEFAULT_ORDER.map((id, i) => (
+            <SectionSkeleton key={id} index={i} />
           ))}
         </div>
       )}
@@ -199,60 +290,114 @@ export function PersonalizedGrid({ userId }: { userId: string }) {
       {!isLoading && (
         <Reorder.Group
           axis="y"
-          values={sections}
+          values={order}
           onReorder={handleManualReorder}
           style={{ listStyle: "none", padding: 0, margin: 0 }}
         >
-          {sections.map((sectionId, index) => {
+          {order.map((sectionId, index) => {
             const Component = SECTION_MAP[sectionId];
             if (!Component) return null;
+            const isTop = index === 0;
 
             return (
               <Reorder.Item
                 key={sectionId}
                 value={sectionId}
-                style={{ marginBottom: "16px", cursor: "grab" }}
+                style={{ marginBottom: "14px" }}
                 whileDrag={{
-                  scale: 1.015,
-                  boxShadow: "0 20px 60px rgba(0,0,0,0.4)",
-                  zIndex: 10,
-                  cursor: "grabbing",
+                  scale: 1.012,
+                  boxShadow: "0 24px 60px rgba(0,0,0,0.45)",
+                  zIndex: 20,
+                  borderRadius: 20,
                 }}
+                onMouseEnter={() => setHoveredSection(sectionId)}
+                onMouseLeave={() => setHoveredSection(null)}
               >
                 <motion.div
                   layout
-                  layoutId={sectionId}
-                  initial={{ opacity: 0, y: 24 }}
+                  layoutId={`card-${sectionId}`}
+                  initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{
                     layout: { type: "spring", stiffness: 340, damping: 32 },
-                    opacity: { duration: 0.25 },
-                    y: { type: "spring", stiffness: 380, damping: 36, delay: index * 0.05 },
+                    opacity: { duration: 0.22 },
+                    y: { type: "spring", stiffness: 400, damping: 38, delay: index * 0.04 },
                   }}
-                  className={`bento-card${index === 0 ? " bento-card--priority" : ""}`}
+                  className={`bento-card${isTop ? " bento-card--priority" : ""}`}
                   style={{ position: "relative", overflow: "hidden" }}
                 >
-                  {/* Priority glow strip on the top widget */}
-                  {index === 0 && (
+                  {/* Priority accent strip */}
+                  <AnimatePresence>
+                    {isTop && (
+                      <motion.div
+                        key="priority-strip"
+                        initial={{ scaleX: 0, opacity: 0 }}
+                        animate={{ scaleX: 1, opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.4 }}
+                        style={{
+                          position: "absolute",
+                          top: 0, left: 0, right: 0,
+                          height: "2px",
+                          background: "linear-gradient(90deg, #0071e3 0%, #2997ff 60%, transparent 100%)",
+                          transformOrigin: "left",
+                          borderRadius: "1px",
+                        }}
+                      />
+                    )}
+                  </AnimatePresence>
+
+                  {/* "TOP PRIORITY" badge */}
+                  {isTop && (
                     <motion.div
-                      layoutId="priority-strip"
+                      initial={{ opacity: 0, scale: 0 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: 0.1, type: "spring", stiffness: 400, damping: 25 }}
                       style={{
                         position: "absolute",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: "2px",
-                        background:
-                          "linear-gradient(90deg, #0071e3, #2997ff, transparent)",
-                        borderRadius: "1px",
+                        top: 12,
+                        right: 36,
+                        fontSize: "9px",
+                        fontWeight: 700,
+                        color: "#2997ff",
+                        background: "rgba(0,113,227,0.12)",
+                        border: "0.5px solid rgba(0,113,227,0.28)",
+                        padding: "2px 8px",
+                        borderRadius: "980px",
+                        letterSpacing: "0.5px",
+                        textTransform: "uppercase",
+                        zIndex: 2,
                       }}
-                      initial={{ scaleX: 0, opacity: 0 }}
-                      animate={{ scaleX: 1, opacity: 1 }}
-                      transition={{ duration: 0.5, delay: 0.1 }}
-                    />
+                    >
+                      ● Top Priority
+                    </motion.div>
                   )}
 
-                  <Component userId={userId} isTop={index === 0} />
+                  {/* Drag handle on hover */}
+                  <AnimatePresence>
+                    {hoveredSection === sectionId && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.12 }}
+                        style={{
+                          position: "absolute",
+                          top: "50%",
+                          right: 12,
+                          transform: "translateY(-50%)",
+                          color: "rgba(var(--fg-rgb),0.16)",
+                          cursor: "grab",
+                          zIndex: 2,
+                          pointerEvents: "none",
+                        }}
+                      >
+                        <GripVertical size={15} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <Component userId={userId} isTop={isTop} />
                 </motion.div>
               </Reorder.Item>
             );

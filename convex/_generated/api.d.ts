@@ -11,6 +11,7 @@
 import type * as events from "../events.js";
 import type * as personas from "../personas.js";
 import type * as preferences from "../preferences.js";
+import type * as seed from "../seed.js";
 
 import type {
   ApiFromModules,
@@ -22,6 +23,7 @@ declare const fullApi: ApiFromModules<{
   events: typeof events;
   personas: typeof personas;
   preferences: typeof preferences;
+  seed: typeof seed;
 }>;
 
 /**
