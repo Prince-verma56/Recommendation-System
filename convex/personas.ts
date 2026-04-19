@@ -131,6 +131,22 @@ export const getRankedSectionsByScore = query({
   handler: async (ctx, { userId }) => {
     if (!userId) return [];
 
+    // Check for manual override first
+    const prefs = await ctx.db
+      .query("preferences")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    if (prefs?.personaOverride) {
+      if (prefs.personaOverride === "Power User") {
+        return ["stats", "activity", "oracle", "notifications"];
+      } else if (prefs.personaOverride === "Quick Scanner") {
+        return ["activity", "stats", "notifications", "oracle"];
+      } else if (prefs.personaOverride === "Explorer") {
+        return ["oracle", "activity", "stats", "notifications"];
+      }
+    }
+
     const ALL_SECTIONS = ["stats", "activity", "oracle", "notifications"];
     const now = Date.now();
     const oneHourAgo = now - 3_600_000;
@@ -356,4 +372,86 @@ export const getTodaysHourlyActivity = query({
     }
     return hourTotals;
   },
+});
+
+// Query: Detailed stats for the Analytics Hero section
+export const getDetailedStats = query({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    if (!userId) return null;
+    
+    // Total tracked sections
+    const timeSlots = await ctx.db
+      .query("timeSlots")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+      
+    const uniqueSections = new Set(timeSlots.map(s => s.section)).size;
+    
+    // Active hours
+    const activeHoursList = new Set(timeSlots.filter(s => s.score > 0).map(s => s.hour));
+    const activeHours = activeHoursList.size;
+    
+    // Layout Adaptations (using persona session counts or total event counts division)
+    const persona = await ctx.db
+      .query("personas")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+      
+    return {
+      sectionsTracked: uniqueSections || 4,
+      hoursMonitored: activeHours || 1,
+      adaptationsToday: persona?.sessionCount || 0
+    };
+  }
+});
+
+// Query: Artificial Intelligence Summary of User Behavior
+export const getAnalyticsSummary = query({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    if (!userId) return null;
+    
+    const persona = await ctx.db
+      .query("personas")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+      
+    if (!persona) {
+      return "We are still analyzing your initial behavior. Keep interacting with the dashboard to build your unique behavioral model.";
+    }
+    
+    const timeSlots = await ctx.db
+      .query("timeSlots")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+      
+    // Find highest affinity section
+    let topSection = "stats";
+    let topScore = -1;
+    let peakHour = 9;
+    
+    for (const slot of timeSlots) {
+      if (slot.score > topScore) {
+        topScore = slot.score;
+        topSection = slot.section;
+        peakHour = slot.hour;
+      }
+    }
+    
+    const hourLabel = peakHour < 12 ? `${peakHour} AM` : peakHour === 12 ? "12 PM" : `${peakHour - 12} PM`;
+    
+    const pType = persona.type || "Explorer";
+    let summary = `Your behavioral fingerprint classifies you as a ${pType}. `;
+    
+    if (pType === "Quick Scanner") {
+      summary += `You prefer rapid visual feedback and high-level numbers. Your peak interaction occurs around ${hourLabel}, heavily favoring the ${topSection} module.`;
+    } else if (pType === "Power User") {
+      summary += `You have deep analytical sessions, demonstrating high dwell times and precise scrolling. We anticipate your deepest engagement begins at ${hourLabel} primarily within ${topSection}.`;
+    } else {
+      summary += `You display a balanced, deliberate approach to the interface. The system has learned to prioritize ${topSection} for you, particularly around ${hourLabel}.`;
+    }
+    
+    return summary;
+  }
 });

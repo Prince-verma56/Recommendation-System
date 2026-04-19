@@ -1,153 +1,158 @@
 "use client";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { motion, AnimatePresence } from "framer-motion";
+import { Activity, MousePointerClick, Eye, Zap, Clock, TrendingUp } from "lucide-react";
 
-import { motion } from "framer-motion";
-import { Bell, CheckCircle2, FileText, UserPlus } from "lucide-react";
-
-interface Notification {
-  id: number;
-  icon: React.ReactNode;
-  iconBg: string;
-  title: string;
-  subtitle: string;
-  time: string;
-  unread: boolean;
-}
-
-const NOTIFICATIONS: Notification[] = [
-  {
-    id: 1,
-    icon: <FileText size={14} />,
-    iconBg: "#0071e3",
-    title: "Document Review Request",
-    subtitle: "Sarah Chen sent you a contract for review.",
-    time: "2m ago",
-    unread: true,
-  },
-  {
-    id: 2,
-    icon: <UserPlus size={14} />,
-    iconBg: "#30d158",
-    title: "New Collaborator Added",
-    subtitle: "Alex joined your workspace.",
-    time: "18m ago",
-    unread: true,
-  },
-  {
-    id: 3,
-    icon: <CheckCircle2 size={14} />,
-    iconBg: "#bf5af2",
-    title: "Task Completed",
-    subtitle: "Q2 report was automatically filed.",
-    time: "1h ago",
-    unread: false,
-  },
-];
-
-export function NotificationsBlock({ isTop }: { userId: string; isTop?: boolean }) {
-  const unreadCount = NOTIFICATIONS.filter(n => n.unread).length;
-
+interface SignalBarProps { label: string; value: number; max: number; color: string; icon: React.ReactNode }
+function SignalBar({ label, value, max, color, icon }: SignalBarProps) {
+  const pct = max > 0 ? Math.min(100, (value / max) * 100) : 0;
   return (
-    <div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" }}>
-        <div>
-          <div className="stat-label">Notifications</div>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <h3 style={{ fontSize: "18px", fontWeight: 600, margin: 0, letterSpacing: "-0.02em" }}>Inbox</h3>
-            {unreadCount > 0 && (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                style={{
-                  background: "#0071e3",
-                  color: "var(--text-primary)",
-                  fontSize: "10px",
-                  fontWeight: 700,
-                  borderRadius: "980px",
-                  padding: "2px 7px",
-                  lineHeight: 1.4,
-                }}
-              >
-                {unreadCount}
-              </motion.span>
-            )}
-          </div>
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ color, opacity: 0.8 }}>{icon}</span>
+          <span style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 500 }}>{label}</span>
         </div>
-        <button style={{ background: "none", border: "none", cursor: "pointer", color: "#0071e3", fontSize: "13px", fontWeight: 600 }}>
-          Mark all read
-        </button>
+        <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)" }}>
+          {value > 0 ? value.toLocaleString() : "—"}
+        </span>
       </div>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-        {NOTIFICATIONS.map((n, i) => (
-          <motion.div
-            key={n.id}
-            initial={{ opacity: 0, x: -8 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.08 }}
-            whileHover={{ backgroundColor: "rgba(var(--fg-rgb),0.04)" }}
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: "12px",
-              padding: "12px 14px",
-              background: n.unread ? "rgba(0,113,227,0.06)" : "rgba(var(--fg-rgb),0.02)",
-              border: `0.5px solid ${n.unread ? "rgba(0,113,227,0.14)" : "rgba(var(--fg-rgb),0.05)"}`,
-              borderRadius: "14px",
-              cursor: "pointer",
-              transition: "background 0.2s",
-              position: "relative",
-            }}
-          >
-            {/* Unread dot */}
-            {n.unread && (
-              <motion.div
-                style={{
-                  position: "absolute",
-                  top: 12,
-                  right: 14,
-                  width: 6,
-                  height: 6,
-                  borderRadius: "50%",
-                  background: "#0071e3",
-                }}
-                animate={{ opacity: [1, 0.4, 1] }}
-                transition={{ duration: 2, repeat: Infinity }}
-              />
-            )}
-
-            {/* Icon */}
-            <div style={{
-              width: 32,
-              height: 32,
-              borderRadius: "10px",
-              background: n.iconBg,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              color: "var(--text-primary)",
-            }}>
-              {n.icon}
-            </div>
-
-            {/* Text */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: "13px", fontWeight: n.unread ? 600 : 400, color: "var(--text-primary)", marginBottom: "2px" }}>
-                {n.title}
-              </div>
-              <div style={{ fontSize: "12px", color: "var(--text-tertiary)", lineHeight: 1.45, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {n.subtitle}
-              </div>
-            </div>
-
-            <div style={{ fontSize: "11px", color: "var(--text-tertiary)", flexShrink: 0, marginTop: "1px" }}>
-              {n.time}
-            </div>
-          </motion.div>
-        ))}
+      <div style={{ height: 4, background: "rgba(var(--fg-rgb),0.06)", borderRadius: 2, overflow: "hidden" }}>
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.8, ease: [0.25, 0.46, 0.45, 0.94] }}
+          style={{ height: "100%", background: `linear-gradient(90deg, ${color}, ${color}99)`, borderRadius: 2 }}
+        />
       </div>
     </div>
   );
 }
 
+export function NotificationsBlock({ userId, isTop }: { userId: string; isTop?: boolean }) {
+  const stats  = useQuery(api.personas.getUserStats,            { userId });
+  const persona = useQuery(api.personas.getPersona,             { userId });
+  const scored = useQuery(api.personas.getRankedSectionsByScore, { userId });
 
+  const topSection = scored?.[0] ?? "—";
+  const sectionLabel: Record<string, string> = {
+    stats: "Your Metrics", activity: "Activity", oracle: "AI Oracle", notifications: "Signals",
+  };
+
+  const personaColors: Record<string, string> = {
+    "Power User": "#bf5af2", "Quick Scanner": "#ff9f0a", "Explorer": "#0071e3",
+  };
+  const pColor = personaColors[persona?.type ?? "Explorer"] ?? "#0071e3";
+
+  const confidence = stats?.totalEvents
+    ? Math.min(99, Math.round(40 + stats.totalEvents * 0.8))
+    : 0;
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
+        <div>
+          <div className="stat-label">Behavioral Signals</div>
+          <h3 style={{ fontSize: 17, fontWeight: 600, margin: 0, letterSpacing: "-0.02em" }}>Live Intelligence</h3>
+        </div>
+        {/* Live pulse */}
+        <motion.div
+          style={{ display: "flex", alignItems: "center", gap: 5, padding: "4px 10px",
+            background: "rgba(0,113,227,0.1)", border: "0.5px solid rgba(0,113,227,0.25)",
+            borderRadius: 980, flexShrink: 0 }}
+          animate={{ opacity: [0.7, 1, 0.7] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        >
+          <motion.div
+            style={{ width: 5, height: 5, borderRadius: "50%", background: "#0071e3" }}
+            animate={{ scale: [1, 1.4, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+          />
+          <span style={{ fontSize: 10, color: "#2997ff", fontWeight: 600 }}>LIVE</span>
+        </motion.div>
+      </div>
+
+      {/* Persona badge */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={persona?.type ?? "loading"}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            padding: "10px 14px",
+            background: `${pColor}12`,
+            border: `0.5px solid ${pColor}30`,
+            borderRadius: 12,
+            marginBottom: 16,
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 600, color: pColor, letterSpacing: "0.5px", textTransform: "uppercase" }}>
+              Current Persona
+            </div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginTop: 2 }}>
+              {persona?.type ?? "Learning..."}
+            </div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 10, color: "var(--text-tertiary)", fontWeight: 500 }}>Confidence</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: pColor }}>{confidence > 0 ? `${confidence}%` : "—"}</div>
+          </div>
+        </motion.div>
+      </AnimatePresence>
+
+      {/* Signal bars — all from Convex */}
+      <SignalBar
+        label="Events Tracked"
+        value={stats?.totalEvents ?? 0}
+        max={200}
+        color="#0071e3"
+        icon={<Activity size={12} />}
+      />
+      <SignalBar
+        label="Avg Dwell (ms)"
+        value={stats?.avgDwellMs ?? 0}
+        max={30000}
+        color="#30d158"
+        icon={<Clock size={12} />}
+      />
+      <SignalBar
+        label="Avg Scroll Depth %"
+        value={stats?.avgScrollDepth ?? 0}
+        max={100}
+        color="#ff9f0a"
+        icon={<Eye size={12} />}
+      />
+      <SignalBar
+        label="Click Events"
+        value={stats?.clickEvents ?? 0}
+        max={120}
+        color="#bf5af2"
+        icon={<MousePointerClick size={12} />}
+      />
+
+      {/* Top section now */}
+      <div style={{
+        marginTop: 4, padding: "8px 12px",
+        background: "rgba(var(--fg-rgb),0.04)",
+        border: "0.5px solid rgba(var(--fg-rgb),0.07)",
+        borderRadius: 10,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+      }}>
+        <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 500 }}>
+          Top section now
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <TrendingUp size={11} color="#0071e3" />
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
+            {sectionLabel[topSection] ?? topSection}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}

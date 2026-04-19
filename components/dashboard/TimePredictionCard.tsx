@@ -1,166 +1,208 @@
 "use client";
-
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { motion, AnimatePresence } from "framer-motion";
-import { Clock, Zap, Calendar, ArrowRight } from "lucide-react";
+import { Sparkles, TrendingUp, Clock, BarChart2 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-interface Prediction {
-  label: string;
-  time: string;
-  icon: React.ReactNode;
-  confidence: number;
-  cta?: string;
-}
-
-function getTimeGreeting(hour: number) {
-  if (hour < 12) return "Morning Focus";
-  if (hour < 17) return "Afternoon Session";
-  return "Evening Review";
-}
-
-function getHourLabel(h: number) {
-  const suffix = h >= 12 ? "PM" : "AM";
-  const display = h > 12 ? h - 12 : h || 12;
-  return `${display}:00 ${suffix}`;
-}
-
-export function TimePredictionCard({ isTop }: { userId: string; isTop?: boolean }) {
-  const [hour, setHour] = useState(new Date().getHours());
-  const [minuteStr, setMinuteStr] = useState("");
-
+function useTypewriter(text: string, speed = 20) {
+  const [out, setOut] = useState("");
   useEffect(() => {
-    const tick = () => {
-      const now = new Date();
-      setHour(now.getHours());
-      setMinuteStr(now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }));
-    };
-    tick();
-    const id = setInterval(tick, 30000);
+    setOut("");
+    if (!text) return;
+    let i = 0;
+    const id = setInterval(() => {
+      setOut(text.slice(0, i + 1));
+      i++;
+      if (i >= text.length) clearInterval(id);
+    }, speed);
     return () => clearInterval(id);
-  }, []);
+  }, [text, speed]);
+  return out;
+}
 
-  const predictions: Prediction[] = [
-    {
-      label: "Daily Sync Prep",
-      time: getHourLabel(hour + 1),
-      icon: <Calendar size={14} />,
-      confidence: 92,
-      cta: "Join Call",
-    },
-    {
-      label: "Analytics Deep-Dive",
-      time: getHourLabel(hour + 2),
-      icon: <Zap size={14} />,
-      confidence: 78,
-    },
-    {
-      label: "Review Queue",
-      time: getHourLabel(hour + 3),
-      icon: <Clock size={14} />,
-      confidence: 65,
-    },
-  ];
+// Derive time-of-day affinity from timeSlots data
+function useTimeAffinity(userId: string) {
+  const weekly = useQuery(api.personas.getWeeklyEngagement, { userId });
+  const hourly = useQuery(api.personas.getTodaysHourlyActivity, { userId });
+
+  if (!hourly) return null;
+
+  // Find top 3 hours
+  const ranked = hourly
+    .map((score, h) => ({ h, score }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+    .filter((x) => x.score > 0);
+
+  return ranked.map(({ h, score }) => {
+    const label = h < 12 ? `${h === 0 ? "12" : h}am` : h === 12 ? "12pm" : `${h - 12}pm`;
+    const pct = score > 0 ? Math.min(100, Math.round((score / Math.max(...hourly, 1)) * 100)) : 0;
+    return { label, pct };
+  });
+}
+
+const SECTION_ICONS: Record<string, React.ReactNode> = {
+  stats:         <BarChart2 size={13} />,
+  activity:      <TrendingUp size={13} />,
+  oracle:        <Sparkles size={13} />,
+  notifications: <Clock size={13} />,
+};
+
+export function TimePredictionCard({ userId, isTop }: { userId: string; isTop?: boolean }) {
+  const insight  = useQuery(api.personas.getAIInsight,            { userId });
+  const persona  = useQuery(api.personas.getPersona,              { userId });
+  const scored   = useQuery(api.personas.getRankedSectionsByScore, { userId });
+  const affinity = useTimeAffinity(userId);
+
+  const insightText = insight ?? "Analyzing your behavioral patterns...";
+  const typed = useTypewriter(insightText, 18);
+
+  const [updatedStr, setUpdatedStr] = useState("just now");
+  useEffect(() => {
+    if (!persona?.updatedAt) return;
+    const diff = Math.floor((Date.now() - persona.updatedAt) / 60000);
+    setUpdatedStr(diff < 1 ? "just now" : `${diff}m ago`);
+  }, [persona?.updatedAt]);
+
+  const top3 = (scored ?? []).slice(0, 3);
+  const labelMap: Record<string, string> = {
+    stats: "Your Metrics", activity: "Activity", oracle: "AI Oracle", notifications: "Signals",
+  };
 
   return (
-    <div className="thinking-card" style={{ borderRadius: "16px", padding: "20px", position: "relative", overflow: "hidden" }}>
-      {/* Subtle scan line */}
+    <div
+      className="thinking-card"
+      style={{ borderRadius: 16, padding: 20, position: "relative", overflow: "hidden", height: "100%" }}
+    >
+      {/* Scan line */}
       <div style={{
-        position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-        background: "linear-gradient(180deg, transparent 0%, rgba(0,113,227,0.03) 50%, transparent 100%)",
+        position: "absolute", inset: 0,
+        background: "linear-gradient(180deg, transparent 0%, rgba(0,113,227,0.04) 50%, transparent 100%)",
         backgroundSize: "100% 200%",
         animation: "scanLine 8s linear infinite",
         pointerEvents: "none",
       }} />
 
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
         <div>
           <div className="stat-label">AI Oracle</div>
-          <h3 style={{ fontSize: "18px", fontWeight: 600, margin: 0, letterSpacing: "-0.02em" }}>
-            {getTimeGreeting(hour)}
-          </h3>
+          <h3 style={{ fontSize: 17, fontWeight: 600, margin: 0, letterSpacing: "-0.02em" }}>Real-time Prediction</h3>
         </div>
         <motion.div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-            padding: "6px 12px",
-            background: "rgba(0,113,227,0.12)",
-            border: "0.5px solid rgba(0,113,227,0.3)",
-            borderRadius: "980px",
-          }}
-          animate={{ opacity: [0.8, 1, 0.8] }}
+          style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 11px",
+            background: "rgba(0,113,227,0.12)", border: "0.5px solid rgba(0,113,227,0.3)", borderRadius: 980 }}
+          animate={{ opacity: [0.75, 1, 0.75] }}
           transition={{ duration: 2, repeat: Infinity }}
         >
           <motion.div
-            style={{ width: 6, height: 6, borderRadius: "50%", background: "#0071e3" }}
-            animate={{ scale: [1, 1.3, 1] }}
+            style={{ width: 5, height: 5, borderRadius: "50%", background: "#0071e3" }}
+            animate={{ scale: [1, 1.4, 1] }}
             transition={{ duration: 1.5, repeat: Infinity }}
           />
-          <span style={{ fontSize: "11px", color: "#2997ff", fontWeight: 600 }}>PREDICTING</span>
+          <span style={{ fontSize: 10, color: "#2997ff", fontWeight: 600 }}>PREDICTING</span>
         </motion.div>
       </div>
 
-      {/* Time Display */}
-      <motion.div
-        style={{ textAlign: "center", marginBottom: "20px" }}
-        animate={{ opacity: [0.85, 1, 0.85] }}
-        transition={{ duration: 4, repeat: Infinity }}
-      >
-        <div className="shimmer-text" style={{ fontSize: "40px", fontWeight: 700, letterSpacing: "-0.04em", lineHeight: 1 }}>
-          {minuteStr}
-        </div>
-        <div style={{ fontSize: "12px", color: "rgba(0,113,227,0.8)", marginTop: "4px", fontWeight: 500 }}>
-          Preparing your workflow
-        </div>
-      </motion.div>
+      {/* AI insight — typewriter, real Convex data */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={insightText.slice(0, 20)}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={{
+            fontSize: 13, lineHeight: 1.7,
+            color: "rgba(var(--fg-rgb),0.72)",
+            background: "rgba(0,113,227,0.06)",
+            border: "0.5px solid rgba(0,113,227,0.12)",
+            borderRadius: 12,
+            padding: "12px 14px",
+            marginBottom: 16,
+            minHeight: 64,
+          }}
+        >
+          <span style={{ color: "#2997ff", marginRight: 6 }}>✦</span>
+          {typed}
+          {typed.length < insightText.length && (
+            <motion.span
+              animate={{ opacity: [1, 0, 1] }}
+              transition={{ duration: 0.7, repeat: Infinity }}
+              style={{ display: "inline-block", width: 2, height: 11, background: "#0071e3",
+                marginLeft: 2, verticalAlign: "middle", borderRadius: 1 }}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
 
-      {/* Predictions */}
-      <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-        {predictions.map((pred, i) => (
-          <motion.div
-            key={pred.label}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: i * 0.1 }}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-              padding: "10px 14px",
-              background: "rgba(var(--fg-rgb),0.03)",
-              border: "0.5px solid rgba(var(--fg-rgb),0.06)",
-              borderRadius: "12px",
-            }}
-          >
-            <div style={{ color: "#2997ff", flexShrink: 0 }}>{pred.icon}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: "13px", fontWeight: 500, color: "var(--text-primary)" }}>{pred.label}</div>
-              <div style={{ fontSize: "11px", color: "var(--text-tertiary)", marginTop: "1px" }}>{pred.time}</div>
-            </div>
-            {/* Confidence bar */}
-            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-              <div style={{ width: 40, height: 3, background: "rgba(var(--fg-rgb),0.08)", borderRadius: "2px", overflow: "hidden" }}>
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${pred.confidence}%` }}
-                  transition={{ delay: i * 0.1 + 0.3, duration: 0.6 }}
-                  style={{ height: "100%", background: `rgba(0,113,227,${pred.confidence / 100})`, borderRadius: "2px" }}
-                />
+      {/* Top 3 ranked sections — from behavioral scoring */}
+      {top3.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-tertiary)", letterSpacing: "0.5px",
+            textTransform: "uppercase", marginBottom: 8 }}>
+            Current Priority Order
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {top3.map((sectionId, i) => (
+              <motion.div
+                key={sectionId}
+                initial={{ opacity: 0, x: -8 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.08 }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "8px 12px",
+                  background: i === 0 ? "rgba(0,113,227,0.08)" : "rgba(var(--fg-rgb),0.03)",
+                  border: `0.5px solid ${i === 0 ? "rgba(0,113,227,0.2)" : "rgba(var(--fg-rgb),0.05)"}`,
+                  borderRadius: 10,
+                }}
+              >
+                <span style={{ fontSize: 10, fontWeight: 700, color: i === 0 ? "#2997ff" : "var(--text-tertiary)",
+                  width: 16, textAlign: "center" }}>
+                  #{i + 1}
+                </span>
+                <span style={{ color: i === 0 ? "#2997ff" : "rgba(var(--fg-rgb),0.4)" }}>
+                  {SECTION_ICONS[sectionId] ?? <Clock size={13} />}
+                </span>
+                <span style={{ fontSize: 12, fontWeight: i === 0 ? 600 : 400, color: i === 0 ? "var(--text-primary)" : "var(--text-secondary)" }}>
+                  {labelMap[sectionId] ?? sectionId}
+                </span>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Time affinity peaks */}
+      {affinity && affinity.length > 0 && (
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 600, color: "var(--text-tertiary)", letterSpacing: "0.5px",
+            textTransform: "uppercase", marginBottom: 7 }}>
+            Peak Activity Hours
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            {affinity.map(({ label, pct }) => (
+              <div key={label} style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginBottom: 3, textAlign: "center" }}>{label}</div>
+                <div style={{ height: 3, background: "rgba(var(--fg-rgb),0.06)", borderRadius: 2, overflow: "hidden" }}>
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 0.9 }}
+                    style={{ height: "100%", background: "#0071e3", borderRadius: 2 }}
+                  />
+                </div>
+                <div style={{ fontSize: 10, color: "#2997ff", textAlign: "center", marginTop: 2, fontWeight: 600 }}>{pct}%</div>
               </div>
-              <span style={{ fontSize: "10px", color: "var(--text-tertiary)", width: "24px" }}>{pred.confidence}%</span>
-            </div>
-            {pred.cta && (
-              <button className="btn-pill btn-pill-primary" style={{ padding: "6px 14px", fontSize: "12px" }}>
-                {pred.cta}
-              </button>
-            )}
-          </motion.div>
-        ))}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Updated timestamp */}
+      <div style={{ marginTop: 14, fontSize: 10, color: "var(--text-tertiary)", textAlign: "right" }}>
+        Updated {updatedStr}
       </div>
     </div>
   );
 }
-
-

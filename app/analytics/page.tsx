@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { HeatmapCanvas, SessionTimeline } from "@/components/analytics/HeatmapCanvas";
 import { Navbar } from "@/components/layout/Navbar";
+import { DynamicStatsRow } from "@/components/analytics/DynamicStatsRow";
+import { AIBehaviorSummary } from "@/components/analytics/AIBehaviorSummary";
 
 export const metadata = {
   title: "Analytics — PersonaUI",
@@ -62,29 +64,10 @@ export default async function AnalyticsPage() {
           </p>
         </div>
 
+        <AIBehaviorSummary />
+
         {/* ── Stats Row — 3-col responsive grid ─────────── */}
-        <div className="analytics-stat-grid">
-          {[
-            { label: "Sections Tracked", value: "4",   sub: "Dashboard sections",    color: "#0071e3" },
-            { label: "Hours Monitored",   value: "9",   sub: "9am – 5pm window",       color: "#30d158" },
-            { label: "Adaptations Today", value: "—",   sub: "Live updating",           color: "#bf5af2" },
-          ].map(stat => (
-            <div key={stat.label} className="bento-card" style={{
-              padding: "20px",
-            }}>
-              <div style={{
-                position: "absolute", top: 0, left: 0, right: 0,
-                height: "2px",
-                background: `linear-gradient(90deg, ${stat.color}, transparent)`,
-              }} />
-              <div className="stat-label">{stat.label}</div>
-              <div style={{ fontSize: "32px", fontWeight: 700, letterSpacing: "-0.04em", lineHeight: 1.1, margin: "2px 0 4px" }}>
-                {stat.value}
-              </div>
-              <div style={{ fontSize: "12px", color: "var(--text-tertiary)" }}>{stat.sub}</div>
-            </div>
-          ))}
-        </div>
+        <DynamicStatsRow />
 
         {/* ── Heatmap Section ───────────────────────────── */}
         <div className="bento-card" style={{

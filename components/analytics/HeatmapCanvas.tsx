@@ -2,12 +2,11 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
-import { useEffect, useRef } from "react";
+import { motion } from "framer-motion";
 
-// HeatmapCanvas component
+// Analytics CSS overrides can remain clean using standard React generic styling
 export function HeatmapCanvas() {
   const { user } = useUser();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const slots = useQuery(
     api.personas.getAllTimeSlots,
     user?.id ? { userId: user.id } : "skip"
@@ -16,76 +15,65 @@ export function HeatmapCanvas() {
   const SECTIONS = ["stats", "analytics", "actions", "notifications"];
   const HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+  const maxScore = slots && slots.length > 0
+    ? Math.max(...slots.map((s) => s.score), 1)
+    : 1;
 
-    const W = canvas.width;
-    const H = canvas.height;
-    const LEFT_PAD = 80;
-    const TOP_PAD = 28;
-    const cellW = (W - LEFT_PAD) / HOURS.length;
-    const cellH = (H - TOP_PAD) / SECTIONS.length;
-
-    ctx.clearRect(0, 0, W, H);
-
-    const maxScore = slots && slots.length > 0
-      ? Math.max(...slots.map((s) => s.score), 1)
-      : 1;
-
-    // Draw hour labels
-    ctx.font = "10px -apple-system, sans-serif";
-    ctx.fillStyle = "var(--text-tertiary)";
-    HOURS.forEach((h, hi) => {
-      const label = h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`;
-      ctx.fillText(label, LEFT_PAD + hi * cellW + cellW / 2 - 12, 14);
-    });
-
-    // Draw section labels + cells
-    SECTIONS.forEach((section, si) => {
-      // Section label
-      ctx.fillStyle = "var(--text-tertiary)";
-      ctx.fillText(section, 4, TOP_PAD + si * cellH + cellH / 2 + 4);
-
-      HOURS.forEach((hour, hi) => {
-        const slot = slots?.find(
-          (s) => s.section === section && s.hour === hour
-        );
-        const intensity = slot ? Math.min(slot.score / maxScore, 1) : 0;
-        const alpha = Math.max(0.04, intensity);
-
-        ctx.fillStyle = `rgba(0, 113, 227, ${alpha})`;
-        const x = LEFT_PAD + hi * cellW + 2;
-        const y = TOP_PAD + si * cellH + 2;
-        const w = cellW - 4;
-        const ch = cellH - 4;
-        const r = 4;
-
-        ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.lineTo(x + w - r, y);
-        ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-        ctx.lineTo(x + w, y + ch - r);
-        ctx.quadraticCurveTo(x + w, y + ch, x + w - r, y + ch);
-        ctx.lineTo(x + r, y + ch);
-        ctx.quadraticCurveTo(x, y + ch, x, y + ch - r);
-        ctx.lineTo(x, y + r);
-        ctx.quadraticCurveTo(x, y, x + r, y);
-        ctx.closePath();
-        ctx.fill();
-      });
-    });
-  }, [slots]);
-
+  // Render a responsive grid rather than static canvas for hover-effects
   return (
-    <canvas
-      ref={canvasRef}
-      width={560}
-      height={180}
-      style={{ width: "100%", borderRadius: "8px" }}
-    />
+    <div style={{ padding: "0 10px 10px 0", overflowX: "auto" }}>
+      <div style={{ minWidth: "500px" }}>
+        {/* Header row / Timeline Hours */}
+        <div style={{ display: "flex", marginLeft: "80px", marginBottom: "8px" }}>
+          {HOURS.map((h, i) => {
+            const label = h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`;
+            return (
+              <div key={h} style={{ flex: 1, textAlign: "center", fontSize: "10px", color: "var(--text-tertiary)" }}>
+                {label}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Section Rows */}
+        <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+          {SECTIONS.map((section, si) => (
+            <div key={section} style={{ display: "flex", alignItems: "center" }}>
+              <div style={{ width: "80px", fontSize: "11px", color: "var(--text-secondary)", textTransform: "capitalize" }}>
+                {section}
+              </div>
+              <div style={{ display: "flex", flex: 1, gap: "4px" }}>
+                {HOURS.map((hour, hi) => {
+                  const slot = slots?.find(s => s.section === section && s.hour === hour);
+                  const intensity = slot ? Math.min(slot.score / maxScore, 1) : 0;
+                  const alpha = Math.max(0.04, intensity);
+
+                  return (
+                    <motion.div
+                      key={hour}
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ delay: (si * 0.05) + (hi * 0.02) }}
+                      title={`${section} at ${hour}:00 — Score: ${slot?.score || 0}`}
+                      style={{
+                        flex: 1,
+                        height: "28px",
+                        borderRadius: "4px",
+                        background: `rgba(0, 113, 227, ${alpha})`,
+                        border: "0.5px solid rgba(0, 113, 227, 0.1)",
+                        cursor: "crosshair",
+                        transition: "transform 0.1s"
+                      }}
+                      whileHover={{ scale: 1.15, zIndex: 10, background: `rgba(0, 113, 227, ${Math.max(0.4, alpha + 0.3)})` }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -121,10 +109,10 @@ export function SessionTimeline() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-      {events.map((event) => {
+      {events.map((event, i) => {
         const color = actionColor[event.action] ?? "#666";
         const label = actionLabel[event.action] ?? event.action;
-        const time = new Date(event.ts).toLocaleTimeString("en-IN", {
+        const time = new Date(event.ts).toLocaleTimeString("en-US", {
           hour: "2-digit",
           minute: "2-digit",
           second: "2-digit",
@@ -132,9 +120,18 @@ export function SessionTimeline() {
         const dwellSec = Math.round((event.dwellMs ?? 0) / 1000);
 
         return (
-          <div
+          <motion.div
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: i * 0.05 }}
             key={event._id}
-            style={{ display: "flex", gap: "12px", alignItems: "flex-start" }}
+            style={{ 
+              display: "flex", gap: "12px", alignItems: "flex-start",
+              padding: "10px 14px",
+              background: "var(--bg-tertiary)",
+              border: "0.5px solid var(--border)",
+              borderRadius: "10px"
+            }}
           >
             <div
               style={{
@@ -144,22 +141,23 @@ export function SessionTimeline() {
                 background: color,
                 flexShrink: 0,
                 marginTop: "4px",
+                boxShadow: `0 0 8px ${color}80`
               }}
             />
             <div>
-              <p style={{ fontSize: "12px", color: "var(--text-secondary)", margin: 0 }}>
+              <p style={{ fontSize: "13px", color: "var(--text-secondary)", margin: 0 }}>
                 {label} <strong style={{ color }}>{event.section}</strong>
                 {dwellSec > 0 && (
-                  <span style={{ color: "var(--text-tertiary)", fontSize: "11px" }}>
+                  <span style={{ color: "var(--text-tertiary)", fontSize: "12px" }}>
                     {" "}— {dwellSec}s
                   </span>
                 )}
               </p>
-              <p style={{ fontSize: "10px", color: "var(--text-tertiary)", margin: "2px 0 0" }}>
+              <p style={{ fontSize: "11px", color: "var(--text-tertiary)", margin: "2px 0 0" }}>
                 {time}
               </p>
             </div>
-          </div>
+          </motion.div>
         );
       })}
     </div>
