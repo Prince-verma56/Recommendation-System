@@ -4,6 +4,7 @@ import { ClerkProvider } from '@clerk/nextjs'
 import { ThemeProvider } from 'next-themes'
 import { ConvexClientProvider } from '@/components/ConvexClientProvider'
 import { Toaster } from 'sonner'
+import { PreloaderWrapper } from '@/components/ui/PreloaderWrapper'
 import { LenisProvider } from '@/components/providers/LenisProvider'
 import './globals.css'
 
@@ -16,6 +17,7 @@ export const metadata: Metadata = {
 }
 
 import { BackgroundBlob } from '@/components/layout/BackgroundBlob'
+import { PremiumBackground } from '@/components/layout/PremiumBackground'
 
 export default function RootLayout({
   children,
@@ -34,9 +36,12 @@ export default function RootLayout({
           >
             <ConvexClientProvider>
               <BackgroundBlob />
-              <LenisProvider>
-                {children}
-              </LenisProvider>
+              <PremiumBackground />
+              <PreloaderWrapper>
+                <LenisProvider>
+                  {children}
+                </LenisProvider>
+              </PreloaderWrapper>
               <Toaster
                 theme="dark"
                 toastOptions={{
