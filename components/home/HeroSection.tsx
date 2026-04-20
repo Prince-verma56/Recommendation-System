@@ -4,6 +4,7 @@ import { motion, useScroll, useTransform } from 'framer-motion';
 import { useRef, useEffect, useState } from 'react';
 import { usePreloader } from '@/components/ui/PreloaderContext';
 import { ArrowRight, Zap } from 'lucide-react';
+import { useUser, UserButton } from '@clerk/nextjs';
 
 const SIGNALS = [
   { dot: '#22d3ee', text: 'Scroll depth tracked — section 3' },
@@ -24,6 +25,7 @@ export default function HeroSection() {
   const videoRef     = useRef<HTMLVideoElement>(null);
   const { isDone }   = usePreloader();
   const [activeIdx, setActiveIdx] = useState(0);
+  const { isLoaded, isSignedIn } = useUser();
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -87,19 +89,36 @@ export default function HeroSection() {
         </span>
 
         <div className="flex items-center gap-3">
-          <Link href="/login">
-            <button className="text-[13px] font-medium text-white/65 hover:text-white
-                               transition-colors duration-200 px-3 py-1.5">
-              Sign in
-            </button>
-          </Link>
-          <Link href="/signup">
-            <button className="text-[13px] font-semibold text-white px-5 py-2 rounded-full
-                               border border-white/20 hover:bg-white/10
-                               transition-all duration-200">
-              Sign up
-            </button>
-          </Link>
+          {isLoaded && isSignedIn && (
+            <UserButton 
+              appearance={{
+                elements: {
+                  avatarBox: {
+                    width: "32px", height: "32px",
+                    borderRadius: "50%",
+                    border: "1.5px solid rgba(255,255,255,0.15)",
+                  },
+                },
+              }}
+            />
+          )}
+          {isLoaded && !isSignedIn && (
+            <>
+              <Link href="/login">
+                <button className="text-[13px] font-medium text-white/65 hover:text-white
+                                   transition-colors duration-200 px-3 py-1.5">
+                  Sign in
+                </button>
+              </Link>
+              <Link href="/signup">
+                <button className="text-[13px] font-semibold text-white px-5 py-2 rounded-full
+                                   border border-white/20 hover:bg-white/10
+                                   transition-all duration-200">
+                  Sign up
+                </button>
+              </Link>
+            </>
+          )}
         </div>
       </motion.div>
 

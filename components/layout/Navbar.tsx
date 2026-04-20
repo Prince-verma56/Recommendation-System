@@ -40,7 +40,7 @@ export function Navbar() {
       }}
     >
       {/* ── Logo ─────────────────────────────────────── */}
-      <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: "8px", textDecoration: "none", flexShrink: 0 }}>
+      <Link href="/" style={{ display: "flex", alignItems: "center", gap: "8px", textDecoration: "none", flexShrink: 0 }}>
         <motion.div
           style={{
             width: 26, height: 26, borderRadius: "8px",
