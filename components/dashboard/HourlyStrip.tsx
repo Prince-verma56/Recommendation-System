@@ -1,99 +1,71 @@
 "use client";
+import React from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { motion } from "framer-motion";
+import { useUser } from "@clerk/nextjs";
+import { AppCard } from "@/components/ui/AppCard";
+import { Clock } from "lucide-react";
 
-interface Props {
-  userId: string;
-}
+export function HourlyStrip() {
+  const { user } = useUser();
+  const userId = user?.id || "skip";
+  
+  const hourly = useQuery(
+    api.personas.getTodaysHourlyActivity,
+    userId !== "skip" ? { userId } : "skip"
+  );
 
-function hourLabel(h: number): string {
-  if (h === 0) return "12a";
-  if (h === 12) return "12p";
-  return h < 12 ? `${h}a` : `${h - 12}p`;
-}
-
-export function HourlyStrip({ userId }: Props) {
-  const hourly = useQuery(api.personas.getTodaysHourlyActivity, { userId });
+  const hourlyData = hourly ?? new Array(24).fill(0);
   const currentHour = new Date().getHours();
-
-  const safeSamples = hourly ?? new Array(24).fill(0);
-  const max = Math.max(...safeSamples, 1);
+  const hourlyMax = Math.max(...hourlyData, 1);
 
   return (
-    <div>
-      {/* Blocks */}
-      <div
-        style={{
-          display: "flex",
-          gap: "3px",
-          alignItems: "flex-end",
-          height: "48px",
-        }}
-      >
-        {safeSamples.map((value: number, h: number) => {
-          const intensity = value / max;
-          const isCurrent = h === currentHour;
-          const isPast = h < currentHour;
-
+    <AppCard suppressHydrationWarning className="col-span-12 lg:col-span-8 flex flex-col justify-between h-40">
+      <div className="flex justify-between items-center mb-4">
+        <div className="flex items-center gap-2">
+           <Clock size={14} className="text-[#0071e3]" />
+           <h3 className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider">Today's Hourly Rhythm</h3>
+        </div>
+        <span className="text-[9px] bg-white/[0.04] border border-white/[0.05] px-2 py-0.5 rounded-full text-zinc-500 font-bold">
+          {currentHour}:00 NOW
+        </span>
+      </div>
+      
+      <div className="flex gap-1 h-[60px] items-end pb-1">
+        {hourlyData.map((v: number, i: number) => {
+          const isCurrent = i === currentHour;
+          const intensity = v / hourlyMax;
           return (
             <motion.div
-              key={h}
-              title={`${hourLabel(h)}: ${Math.round(value / 1000)}s dwell`}
-              initial={{ height: 4, opacity: 0 }}
-              animate={{
-                height: `${Math.max(10, intensity * 100)}%`,
-                opacity: 1,
-              }}
-              transition={{
-                height: {
-                  type: "spring",
-                  stiffness: 280,
-                  damping: 30,
-                  delay: h * 0.018,
-                },
-                opacity: { duration: 0.2, delay: h * 0.018 },
-              }}
+              key={i}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: i * 0.01 }}
+              className="flex-1 rounded-sm relative group cursor-crosshair min-w-[2px]"
               style={{
-                flex: 1,
-                borderRadius: "3px 3px 2px 2px",
+                height: `${15 + intensity * 85}%`,
                 background: isCurrent
                   ? "#0071e3"
-                  : isPast
-                  ? `rgba(0, 113, 227, ${0.07 + intensity * 0.7})`
-                  : `rgba(var(--fg-rgb), 0.05)`,
-                boxShadow: isCurrent
-                  ? "0 0 8px rgba(0,113,227,0.55)"
-                  : "none",
-                cursor: "default",
-                position: "relative",
+                  : `rgba(0,113,227,${0.08 + intensity * 0.6})`,
+                boxShadow: isCurrent ? "0 0 8px rgba(0,113,227,0.4)" : "none",
               }}
-            />
+            >
+              <div className="absolute opacity-0 group-hover:opacity-100 transition-opacity -top-8 left-1/2 -translate-x-1/2 bg-black text-white text-[8px] py-1 px-2 rounded whitespace-nowrap z-20 pointer-events-none border border-zinc-800 font-bold">
+                {i}:00 • {Math.round(v / 1000)}s
+              </div>
+            </motion.div>
           );
         })}
       </div>
-
-      {/* Hour labels: 12a, 6a, 12p, 6p, 11p */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          marginTop: "5px",
-        }}
-      >
-        {[0, 6, 12, 18, 23].map((h) => (
-          <span
-            key={h}
-            style={{
-              fontSize: "9px",
-              color: h === currentHour ? "#2997ff" : "var(--text-tertiary)",
-              fontWeight: h === currentHour ? 600 : 400,
-            }}
-          >
-            {hourLabel(h)}
-          </span>
-        ))}
+      
+      <div className="flex justify-between text-[8px] text-zinc-600 font-bold tracking-tighter mt-2">
+        <span>12 AM</span>
+        <span>6 AM</span>
+        <span>12 PM</span>
+        <span>6 PM</span>
+        <span>11 PM</span>
       </div>
-    </div>
+    </AppCard>
   );
 }

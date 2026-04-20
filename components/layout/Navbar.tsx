@@ -12,6 +12,7 @@ import { useState } from "react";
 import { ThemeToggle } from "./ThemeToggle";
 
 const NAV_LINKS = [
+  { path: "/demo",      label: "Live Demo",  icon: <LayoutDashboard size={13} /> },
   { path: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={13} /> },
   { path: "/analytics", label: "Analytics",  icon: <BarChart2 size={13} /> },
   { path: "/profile",   label: "Profile",    icon: <User size={13} /> },

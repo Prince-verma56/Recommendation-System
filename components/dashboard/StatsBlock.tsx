@@ -60,34 +60,38 @@ function pctChange(data: number[]): { label: string; positive: boolean } {
   };
 }
 
+import { useUser } from "@clerk/nextjs";
+import { AppCard } from "@/components/ui/AppCard";
+
 // ── Main component ─────────────────────────────────────────────────────────
-export function StatsBlock({ userId, isTop }: { userId: string; isTop?: boolean }) {
-  const stats  = useQuery(api.personas.getUserStats,            { userId });
-  const hourly = useQuery(api.personas.getTodaysHourlyActivity, { userId });
-  const weekly = useQuery(api.personas.getWeeklyEngagement,     { userId });
+export function StatsBlock({ isTop }: { isTop?: boolean } = {}) {
+  const { user } = useUser();
+  const userId = user?.id || "skip";
+
+  const stats  = useQuery(api.personas.getUserStats,            userId !== "skip" ? { userId } : "skip");
+  const hourly = useQuery(api.personas.getTodaysHourlyActivity, userId !== "skip" ? { userId } : "skip");
+  const weekly = useQuery(api.personas.getWeeklyEngagement,     userId !== "skip" ? { userId } : "skip");
 
   const avgDwellSec     = stats ? Math.round(stats.avgDwellMs / 1000) : 0;
   const minutes         = Math.floor(avgDwellSec / 60);
   const seconds         = avgDwellSec % 60;
-  const dwellFormatted  = stats ? `${minutes}m ${seconds}s` : "—";
+  const dwellFormatted  = stats ? `${minutes}m ${seconds}s` : "0s";
 
   // Real sparklines from hourly activity
   const dwellSparkData  = buildSparkline(hourly);
-  // Weekly event counts as sparkline (Mon→Sun)
   const weeklySparkData = weekly ? weekly.map((d) => d.count) : [];
 
   const dwellChange   = pctChange(dwellSparkData);
   const weeklyChange  = pctChange(weeklySparkData.length > 0 ? weeklySparkData : dwellSparkData);
-  const scrollSpark   = buildSparkline(hourly?.map((_: number, i: number) => i % 3 === 0 ? stats?.avgScrollDepth ?? 0 : (stats?.avgScrollDepth ?? 0) * (0.8 + Math.random() * 0.4)));
+  const scrollSpark   = buildSparkline(hourly?.map((_: number, i: number) => i % 3 === 0 ? stats?.avgScrollDepth ?? 0 : (stats?.avgScrollDepth ?? 0) * 0.9));
 
   const dynamicStats = [
     {
       label: "Weekly Events",
-      value: stats?.totalEvents?.toString() ?? "—",
+      value: stats?.totalEvents?.toString() ?? "0",
       change: weeklyChange.label,
       positive: weeklyChange.positive,
       sparkData: weeklySparkData.length > 0 ? weeklySparkData : new Array(9).fill(0),
-      color: "#0071e3",
     },
     {
       label: "Avg Dwell Time",
@@ -95,91 +99,71 @@ export function StatsBlock({ userId, isTop }: { userId: string; isTop?: boolean 
       change: dwellChange.label,
       positive: dwellChange.positive,
       sparkData: dwellSparkData,
-      color: "#30d158",
     },
     {
       label: "Scroll Depth",
-      value: stats ? `${stats.avgScrollDepth}%` : "—",
+      value: stats ? `${Math.round(stats.avgScrollDepth)}%` : "0%",
       change: "Live",
       positive: true,
       sparkData: scrollSpark,
-      color: "#ff9f0a",
     },
     {
       label: "AI Adaptations",
-      value: stats?.adaptations?.toString() ?? "—",
-      change: stats?.adaptations ? `${stats.adaptations} total` : "—",
+      value: stats?.adaptations?.toString() ?? "0",
+      change: "Total",
       positive: true,
       sparkData: stats?.adaptations
         ? Array.from({ length: 9 }, (_, i) => Math.min(stats.adaptations, i + 1))
         : new Array(9).fill(0),
-      color: "#bf5af2",
     },
   ];
 
   return (
-    <div>
+    <div className="col-span-12 lg:col-span-4 flex flex-col">
       {/* Header */}
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, gap: 8 }}>
+      <div className="flex items-start justify-between mb-4 gap-4">
         <div>
-          <div className="stat-label">Performance Stats</div>
-          <h3 style={{ fontSize: 17, fontWeight: 600, margin: 0, letterSpacing: "-0.02em" }}>Your Metrics</h3>
+          <div className="text-[10px] uppercase font-semibold tracking-wider text-[var(--text-tertiary)] mb-1">Performance Stats</div>
+          <h3 className="text-sm font-bold tracking-tight">Your Metrics</h3>
         </div>
         {isTop && (
           <motion.span
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            style={{
-              fontSize: 10, background: "rgba(0,113,227,0.12)", color: "#2997ff",
-              padding: "3px 10px", borderRadius: 980, border: "0.5px solid rgba(0,113,227,0.25)",
-              fontWeight: 600, letterSpacing: "0.5px", whiteSpace: "nowrap", flexShrink: 0,
-            }}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-[9px] bg-[#0071e3]/10 text-[#2997ff] px-2.5 py-1 rounded-full border border-[#0071e3]/20 font-bold uppercase tracking-wider"
           >
-            TOP PRIORITY
+            Top Priority
           </motion.span>
         )}
       </div>
 
       {/* 2×2 real data grid */}
-      <div className="stats-inner-grid">
+      <div className="grid grid-cols-2 gap-3 md:gap-4">
         {dynamicStats.map((stat, i) => (
           <motion.div
             key={stat.label}
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.07 }}
-            style={{
-              background: "var(--bg-tertiary)",
-              border: "0.5px solid var(--border)",
-              borderRadius: 14,
-              padding: "14px 16px",
-              position: "relative",
-              overflow: "hidden",
-            }}
+            transition={{ delay: i * 0.05 }}
           >
-            {/* Top accent line */}
-            <div style={{
-              position: "absolute", top: 0, left: 0, right: 0, height: 2,
-              background: `linear-gradient(90deg, ${stat.color}, transparent)`,
-            }} />
-
-            <div className="stat-label">{stat.label}</div>
-            <div style={{ fontSize: "clamp(20px, 2.5vw, 26px)", fontWeight: 700, letterSpacing: "-0.03em",
-              lineHeight: 1.1, margin: "2px 0 8px" }}>
-              {stat.value}
-            </div>
-
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12,
-                color: stat.positive ? "var(--success)" : "var(--danger)", fontWeight: 500 }}>
-                {stat.positive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
-                {stat.change}
+            <AppCard className="p-3.5 md:p-4 flex flex-col" variant={isTop ? "priority" : "default"}>
+              <div className="text-[10px] font-medium text-[var(--text-tertiary)] uppercase tracking-tight mb-2">{stat.label}</div>
+              <div className="text-xl md:text-2xl font-bold tracking-tighter mb-4">
+                {stat.value}
               </div>
-              <Sparkline data={stat.sparkData} color={stat.color} />
-            </div>
+
+              <div className="mt-auto flex items-center justify-between">
+                <div className="flex items-center gap-1 text-[10px] font-medium text-zinc-400">
+                  {stat.positive ? <TrendingUp size={10} className="text-[#0071e3]" /> : <TrendingDown size={10} className="text-zinc-500" />}
+                  <span>{stat.change}</span>
+                </div>
+                <Sparkline data={stat.sparkData} color="#0071e3" />
+              </div>
+            </AppCard>
           </motion.div>
         ))}
       </div>
     </div>
   );
 }
+

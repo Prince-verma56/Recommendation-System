@@ -1,16 +1,16 @@
 "use client";
+import React, { useState, useEffect, useRef } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, TrendingUp, Clock, BarChart2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { Zap, Activity, BarChart2, TrendingUp, Sparkles, Clock } from "lucide-react";
+import { useUser } from "@clerk/nextjs";
 
-function useTypewriter(text: string, speed = 20) {
+function useTypewriter(text: string, speed = 30) {
   const [out, setOut] = useState("");
   useEffect(() => {
-    setOut("");
-    if (!text) return;
     let i = 0;
+    setOut("");
     const id = setInterval(() => {
       setOut(text.slice(0, i + 1));
       i++;
@@ -49,10 +49,13 @@ const SECTION_ICONS: Record<string, React.ReactNode> = {
   notifications: <Clock size={13} />,
 };
 
-export function TimePredictionCard({ userId, isTop }: { userId: string; isTop?: boolean }) {
-  const insight  = useQuery(api.personas.getAIInsight,            { userId });
-  const persona  = useQuery(api.personas.getPersona,              { userId });
-  const scored   = useQuery(api.personas.getRankedSectionsByScore, { userId });
+export function TimePredictionCard({ isTop }: { isTop?: boolean } = {}) {
+  const { user } = useUser();
+  const userId = user?.id || "skip";
+  
+  const insight  = useQuery(api.personas.getAIInsight,            userId !== "skip" ? { userId } : "skip");
+  const persona  = useQuery(api.personas.getPersona,              userId !== "skip" ? { userId } : "skip");
+  const scored   = useQuery(api.personas.getRankedSectionsByScore, userId !== "skip" ? { userId } : "skip");
   const affinity = useTimeAffinity(userId);
 
   const insightText = insight ?? "Analyzing your behavioral patterns...";
@@ -72,8 +75,8 @@ export function TimePredictionCard({ userId, isTop }: { userId: string; isTop?: 
 
   return (
     <div
-      className="thinking-card"
-      style={{ borderRadius: 16, padding: 20, position: "relative", overflow: "hidden", height: "100%" }}
+      className="thinking-card bento-card col-span-12 lg:col-span-6"
+      style={{ padding: 20, position: "relative", overflow: "hidden", height: "100%", display: "flex", flexDirection: "column" }}
     >
       {/* Scan line */}
       <div style={{

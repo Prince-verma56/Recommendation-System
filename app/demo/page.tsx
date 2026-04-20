@@ -1,31 +1,15 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
-
-import { TimePredictionCard } from "@/components/dashboard/TimePredictionCard";
-import { PersonaFingerprint } from "@/components/dashboard/PersonaFingerprint";
-import { AdaptationsToday } from "@/components/dashboard/AdaptationsToday";
-import { StatsBlock } from "@/components/dashboard/StatsBlock";
-import { HourlyStrip } from "@/components/dashboard/HourlyStrip";
-import { WeeklyChart } from "@/components/dashboard/WeeklyChart";
-import { AffinityPills } from "@/components/dashboard/AffinityPills";
-import { AdaptationsLog } from "@/components/dashboard/AdaptationsLog";
-import { SignalsBlock } from "@/components/dashboard/SignalsBlock";
-import { QuickActions } from "@/components/dashboard/QuickActions";
+import { DemoWidgetGrid } from "@/components/dashboard/DemoWidgetGrid";
+import { BehaviorPanel } from "@/components/dashboard/BehaviorPanel";
 
 export const metadata = {
-  title: "Dashboard — PersonaUI",
-  description: "Your adaptive workspace, shaped by your behavior in real-time.",
+  title: "Live Demo — PersonaUI",
+  description: "Experience the real-time behavioral adaptation engine in action.",
 };
 
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return "Good morning";
-  if (h < 17) return "Good afternoon";
-  return "Good evening";
-}
-
-export default async function DashboardPage() {
+export default async function DemoPage() {
   const { userId } = await auth();
   if (!userId) redirect("/sign-in");
 
@@ -44,7 +28,7 @@ export default async function DashboardPage() {
         }}
       />
 
-      <main className="w-full max-w-full overflow-x-hidden px-4 md:px-6 lg:px-8 pt-8 pb-28 mx-auto" style={{ maxWidth: "1120px", minHeight: "100vh" }}>
+      <main className="w-full max-w-full overflow-x-hidden px-4 md:px-6 lg:px-8 pt-8 pb-28 mx-auto" style={{ maxWidth: "1280px", minHeight: "100vh" }}>
         <div style={{ marginBottom: "28px" }}>
           <div
             style={{
@@ -72,7 +56,7 @@ export default async function DashboardPage() {
                 display: "inline-block",
               }}
             />
-            {getGreeting()}
+            Live Adaptation Showcase
           </div>
           <h1
             style={{
@@ -88,7 +72,7 @@ export default async function DashboardPage() {
               backgroundClip: "text",
             }}
           >
-            Behavioral Intelligence Hub
+            Behavioral Engine Demo
           </h1>
           <p
             style={{
@@ -96,26 +80,23 @@ export default async function DashboardPage() {
               color: "rgba(var(--fg-rgb),0.4)",
               margin: 0,
               fontWeight: 400,
+              maxWidth: "600px",
+              lineHeight: 1.6,
             }}
           >
-            A real-time reflection of your focus, adaptations, and engagement rhythms.
+            Interact with the widgets below. As you scroll, dwell, and click, the AI ranks your active patterns to completely reshape the structural flow of the interface in real-time.
           </p>
         </div>
 
-        {/* ── Strict 12-Column Bento Grid ────────────────────── */}
-        <div className="grid grid-cols-12 gap-5 md:gap-6">
-          <TimePredictionCard />
-          <AdaptationsToday />
+        {/* ── Single Column Vertical Demo Layout ────────────────── */}
+        <div className="flex flex-col gap-8">
+          <section className="w-full">
+            <DemoWidgetGrid userId={userId} />
+          </section>
           
-          <StatsBlock />
-          <HourlyStrip />
-          
-          <WeeklyChart />
-          <AffinityPills />
-          
-          <AdaptationsLog />
-          <SignalsBlock />
-          <QuickActions />
+          <section className="w-full">
+            <BehaviorPanel />
+          </section>
         </div>
       </main>
     </>

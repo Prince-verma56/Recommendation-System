@@ -20,7 +20,7 @@ export default async function ProfilePage() {
 
 
 
-      <main style={{ maxWidth: "1100px", margin: "0 auto", padding: "40px 20px 80px" }}>
+      <main className="w-full max-w-full overflow-x-hidden px-4 md:px-6 lg:px-8 pt-10 pb-20 mx-auto" style={{ maxWidth: "1100px" }}>
 
         {/* ── Page Header ───────────────────────────────── */}
         <div style={{ marginBottom: "32px" }}>
@@ -84,6 +84,7 @@ export default async function ProfilePage() {
             Account
           </h2>
           <UserProfile
+            routing="hash"
             appearance={{
               elements: {
                 rootBox: { width: "100%", fontFamily: "inherit" },

@@ -1,269 +1,133 @@
 "use client";
+import React, { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
-import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
-import { Activity, ChevronDown, ChevronUp, RotateCcw, Zap, Clock, MousePointerClick, Eye } from "lucide-react";
+import { motion } from "framer-motion";
+import { AppCard } from "@/components/ui/AppCard";
+import { 
+  User, 
+  Activity, 
+  Zap, 
+  Target, 
+  Brain, 
+  Database 
+} from "lucide-react";
 import { toast } from "sonner";
-
-function RelativeTime({ ts }: { ts: number }) {
-  const diff = Math.floor((Date.now() - ts) / 1000);
-  if (diff < 60) return <>{diff}s ago</>;
-  if (diff < 3600) return <>{Math.floor(diff / 60)}m ago</>;
-  return <>{Math.floor(diff / 3600)}h ago</>;
-}
-
-function MetricRow({
-  icon,
-  label,
-  value,
-  accent,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-  accent?: string;
-}) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "8px 12px",
-        borderRadius: 10,
-        background: "rgba(var(--fg-rgb),0.03)",
-        border: "0.5px solid rgba(var(--fg-rgb),0.05)",
-        marginBottom: 6,
-      }}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ color: accent ?? "var(--text-tertiary)" }}>{icon}</span>
-        <span style={{ fontSize: "12px", color: "var(--text-tertiary)", fontWeight: 500 }}>
-          {label}
-        </span>
-      </div>
-      <span style={{ fontSize: "12px", fontWeight: 600, color: "var(--text-primary)" }}>
-        {value}
-      </span>
-    </div>
-  );
-}
 
 export function BehaviorPanel() {
   const { user } = useUser();
-  const [open, setOpen] = useState(false);
-  const [resetting, setResetting] = useState(false);
+  const userId = user?.id || "skip";
 
-  const stats       = useQuery(api.personas.getUserStats,       user?.id ? { userId: user.id } : "skip");
-  const persona     = useQuery(api.personas.getPersona,         user?.id ? { userId: user.id } : "skip");
-  const scored      = useQuery(api.personas.getRankedSectionsByScore, user?.id ? { userId: user.id } : "skip");
-  const resetData   = useMutation(api.seed.resetUserData);
-  const seedData    = useMutation(api.seed.seedDemoData);
+  const persona = useQuery(api.personas.getPersona, userId !== "skip" ? { userId } : "skip");
+  const stats = useQuery(api.personas.getUserStats, userId !== "skip" ? { userId } : "skip");
+  const scored = useQuery(api.personas.getRankedSectionsByScore, userId !== "skip" ? { userId } : "skip");
+  const seedDemoData = useMutation(api.seed.seedDemoData);
+  const resetUserData = useMutation(api.seed.resetUserData);
 
+  const [isResetting, setIsResetting] = useState(false);
+
+  const activePersona = persona?.override || persona?.type || "Explorer";
+  const confidence = stats?.totalEvents ? Math.min(99, Math.round(40 + stats.totalEvents * 0.8)) : 0;
+  
   const handleReset = async () => {
-    if (!user?.id || resetting) return;
-    setResetting(true);
+    if (userId === "skip" || isResetting) return;
+    setIsResetting(true);
+    const toastId = toast.loading("Clearing historical telemetry...");
     try {
-      await resetData({ userId: user.id });
-      await seedData({ userId: user.id });
-      toast.success("Demo reset!", { description: "Fresh data seeded. Watch the layout adapt." });
-    } catch {
-      toast.error("Reset failed.");
+      await resetUserData({ userId });
+      toast.loading("Injecting behavioral test data...", { id: toastId });
+      await seedDemoData({ userId });
+      toast.success("Demo Data Seeded", { id: toastId, description: "Interface is now ready to adapt." });
+    } catch (e) {
+      toast.error("Demonstration Reset Failed", { id: toastId });
     } finally {
-      setResetting(false);
+      setIsResetting(false);
     }
   };
 
-  const avgDwellSec = stats ? Math.round(stats.avgDwellMs / 1000) : 0;
-  const topSection = scored?.[0] ?? "—";
-  const labelMap: Record<string, string> = {
-    stats: "Your Metrics",
-    activity: "Activity Chart",
-    oracle: "AI Oracle",
-    notifications: "Notifications",
-  };
-
-  const SIGNALS = [
-    { icon: <Clock size={10} />, label: "Dwell Time" },
-    { icon: <MousePointerClick size={10} />, label: "Click Count" },
-    { icon: <Eye size={10} />, label: "Scroll Depth" },
-    { icon: <Zap size={10} />, label: "Recency Factor" },
-  ];
-
   return (
-    <div
-      style={{
-        position: "fixed",
-        bottom: 24,
-        left: 24,
-        zIndex: 50,
-        width: open ? 280 : "auto",
-        background: "rgba(10,10,15,0.94)",
-        backdropFilter: "blur(24px)",
-        WebkitBackdropFilter: "blur(24px)",
-        border: "0.5px solid rgba(var(--fg-rgb),0.1)",
-        borderRadius: 18,
-        boxShadow: "0 8px 40px rgba(0,0,0,0.45)",
-        overflow: "hidden",
-        transition: "width 0.3s cubic-bezier(0.25,1,0.5,1)",
-      }}
-    >
-      {/* Header / Toggle */}
-      <button
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 10,
-          padding: "10px 14px",
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          color: "var(--text-primary)",
-        }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div
-            style={{
-              width: 24,
-              height: 24,
-              borderRadius: 8,
-              background: "rgba(0,113,227,0.2)",
-              border: "0.5px solid rgba(0,113,227,0.3)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Activity size={12} color="#2997ff" />
-          </div>
-          {open && (
-            <span style={{ fontSize: "12px", fontWeight: 600, letterSpacing: "-0.01em", whiteSpace: "nowrap" }}>
-              Behavioral Intelligence
-            </span>
-          )}
+    <AppCard className="flex flex-col w-full">
+      {/* ── Header ───────────────────────────────────── */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="w-10 h-10 rounded-xl bg-[#0071e3]/10 flex items-center justify-center border border-[#0071e3]/20 shadow-[0_0_15px_rgba(0,113,227,0.15)]">
+          <Brain size={20} className="text-[#0071e3]" />
         </div>
-        {open ? <ChevronDown size={13} color="rgba(var(--fg-rgb),0.4)" /> : null}
-      </button>
+        <div>
+          <h2 className="text-base font-bold tracking-tight text-white">Live Intelligence</h2>
+          <p className="text-[10px] text-[#0071e3] font-black uppercase tracking-[0.1em]">Neural Tracking Engine</p>
+        </div>
+      </div>
 
-      {/* Collapsible body */}
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.28, ease: [0.25, 1, 0.5, 1] }}
-            style={{ overflow: "hidden" }}
-          >
-            <div style={{ padding: "0 14px 14px" }}>
-              {/* Persona Row */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "8px 12px",
-                  background: "rgba(0,113,227,0.1)",
-                  border: "0.5px solid rgba(0,113,227,0.2)",
-                  borderRadius: 10,
-                  marginBottom: 8,
-                }}
-              >
-                <div style={{ fontSize: "11px", color: "rgba(0,113,227,0.8)", fontWeight: 600, letterSpacing: "0.4px", textTransform: "uppercase" }}>
-                  Persona
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <motion.div
-                    style={{ width: 5, height: 5, borderRadius: "50%", background: "#0071e3" }}
-                    animate={{ opacity: [1, 0.3, 1] }}
-                    transition={{ duration: 1.8, repeat: Infinity }}
-                  />
-                  <span style={{ fontSize: "12px", fontWeight: 700, color: "#2997ff" }}>
-                    {persona?.type ?? "Learning..."}
-                  </span>
-                </div>
-              </div>
-
-              {/* Metrics */}
-              <MetricRow icon={<MousePointerClick size={12} />} label="Total Events" value={stats?.totalEvents ?? "—"} accent="#0071e3" />
-              <MetricRow icon={<Eye size={12} />} label="Avg Dwell" value={avgDwellSec > 0 ? `${avgDwellSec}s` : "—"} accent="#30d158" />
-              <MetricRow icon={<Activity size={12} />} label="Avg Scroll Depth" value={stats ? `${stats.avgScrollDepth}%` : "—"} accent="#ff9f0a" />
-              <MetricRow icon={<Zap size={12} />} label="Top Section Now" value={labelMap[topSection] ?? topSection} accent="#bf5af2" />
-              <MetricRow
-                icon={<Clock size={12} />}
-                label="Last Adaptation"
-                value={persona?.updatedAt ? <RelativeTime ts={persona.updatedAt} /> : "—"}
-                accent="#2997ff"
-              />
-
-              {/* Signals being tracked */}
-              <div style={{ margin: "10px 0 8px" }}>
-                <div style={{ fontSize: "10px", fontWeight: 600, color: "var(--text-tertiary)", letterSpacing: "0.5px", textTransform: "uppercase", marginBottom: 6 }}>
-                  Signals Tracked
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                  {SIGNALS.map((s) => (
-                    <div
-                      key={s.label}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        padding: "3px 9px",
-                        background: "rgba(var(--fg-rgb),0.06)",
-                        border: "0.5px solid rgba(var(--fg-rgb),0.08)",
-                        borderRadius: 980,
-                        fontSize: "10px",
-                        color: "var(--text-secondary)",
-                        fontWeight: 500,
-                      }}
-                    >
-                      <span style={{ color: "#2997ff" }}>{s.icon}</span>
-                      {s.label}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Reset button */}
-              <button
-                onClick={handleReset}
-                disabled={resetting}
-                style={{
-                  width: "100%",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 7,
-                  marginTop: 10,
-                  padding: "9px 0",
-                  background: "rgba(255,59,48,0.1)",
-                  border: "0.5px solid rgba(255,59,48,0.25)",
-                  borderRadius: 10,
-                  cursor: resetting ? "not-allowed" : "pointer",
-                  color: "#ff453a",
-                  fontSize: "12px",
-                  fontWeight: 600,
-                  opacity: resetting ? 0.6 : 1,
-                  transition: "opacity 0.2s",
-                }}
-              >
-                <RotateCcw
-                  size={12}
-                  style={{ animation: resetting ? "spin 1s linear infinite" : "none" }}
-                />
-                {resetting ? "Resetting..." : "Reset Demo Data"}
-              </button>
+      {/* ── Metrics Grid ──────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        {/* Classification */}
+        <div className="p-4 rounded-2xl bg-zinc-800/20 border border-zinc-700/30 flex flex-col justify-between min-h-[110px] transition-all hover:bg-zinc-800/40">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5"><User size={12} className="text-[#0071e3]"/> Profile</span>
+            <div className="px-2 py-0.5 rounded-full bg-[#30d158]/10 text-[9px] font-black text-[#30d158] border border-[#30d158]/20">
+              {confidence}% Match
             </div>
-            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+          </div>
+          <div className="text-xl font-black capitalize text-white tracking-tight">
+            {activePersona}
+          </div>
+        </div>
+
+        {/* User Signals */}
+        <div className="p-4 rounded-2xl bg-zinc-800/20 border border-zinc-700/30 flex flex-col justify-between min-h-[110px] transition-all hover:bg-zinc-800/40">
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 mb-3"><Activity size={12} className="text-[#0071e3]"/> Telemetry</span>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-white">{stats?.totalEvents ?? 0}</span>
+            <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-tighter">Signals</span>
+          </div>
+        </div>
+
+        {/* Peak Affinity */}
+        <div className="p-4 rounded-2xl bg-zinc-800/20 border border-zinc-700/30 flex flex-col justify-between min-h-[110px] transition-all hover:bg-zinc-800/40">
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 mb-3"><Target size={12} className="text-[#0071e3]"/> Peak Affinity</span>
+          <div className="text-lg font-black capitalize text-white tracking-tight">
+            {scored && scored[0] ? scored[0].replace(/_/g, " ") : "Learning..."}
+          </div>
+        </div>
+
+        {/* Interaction Vectors */}
+        <div className="p-4 rounded-2xl bg-zinc-800/20 border border-zinc-700/30 flex flex-col justify-between min-h-[110px] transition-all hover:bg-zinc-800/40">
+          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5 mb-3"><Zap size={12} className="text-[#0071e3]"/> Interaction</span>
+          <div className="space-y-1.5">
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-zinc-500 font-bold uppercase tracking-tighter text-[9px]">Dwell</span>
+              <span className="text-white font-black">{stats ? Math.round(stats.avgDwellMs / 1000) : 0}s</span>
+            </div>
+            <div className="flex justify-between items-center text-[11px]">
+              <span className="text-zinc-500 font-bold uppercase tracking-tighter text-[9px]">Scroll</span>
+              <span className="text-white font-black">{stats ? Math.round(stats.avgScrollDepth) : 0}%</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── Control Bar ────────────────── */}
+      <div className="mt-8 pt-5 border-t border-zinc-700/30 flex flex-col sm:flex-row items-center justify-between gap-5">
+        <div className="flex items-center gap-3">
+            <div className="flex -space-x-2">
+                {[1, 2, 3].map(i => <div key={i} className="w-6 h-6 rounded-full border-2 border-black bg-zinc-800 flex items-center justify-center text-[8px] font-black">{i}</div>)}
+            </div>
+            <p className="text-[10px] text-zinc-500 font-medium max-w-[280px] leading-relaxed">
+              Neural state can be fully reset to observe the "Explorer" mode adaptation flow from zero.
+            </p>
+        </div>
+        <button 
+          onClick={handleReset}
+          disabled={isResetting}
+          className="px-6 py-2.5 rounded-xl bg-zinc-800/50 border border-zinc-700/50 text-white text-[11px] font-black uppercase tracking-widest flex items-center gap-2.5 transition-all hover:bg-[#ff453a]/10 hover:border-[#ff453a]/30 hover:text-[#ff453a] disabled:opacity-30 active:scale-95 whitespace-nowrap"
+        >
+          <Database size={13} />
+          {isResetting ? "Synchronizing..." : "Clear Neural State"}
+        </button>
+      </div>
+    </AppCard>
   );
 }

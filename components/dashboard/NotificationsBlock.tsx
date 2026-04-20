@@ -41,7 +41,7 @@ export function NotificationsBlock({ userId, isTop }: { userId: string; isTop?: 
   };
 
   const personaColors: Record<string, string> = {
-    "Power User": "#bf5af2", "Quick Scanner": "#ff9f0a", "Explorer": "#0071e3",
+    "Power User": "#0071e3", "Quick Scanner": "#0071e3", "Explorer": "#0071e3",
   };
   const pColor = personaColors[persona?.type ?? "Explorer"] ?? "#0071e3";
 
@@ -117,21 +117,21 @@ export function NotificationsBlock({ userId, isTop }: { userId: string; isTop?: 
         label="Avg Dwell (ms)"
         value={stats?.avgDwellMs ?? 0}
         max={30000}
-        color="#30d158"
+        color="#0071e3"
         icon={<Clock size={12} />}
       />
       <SignalBar
         label="Avg Scroll Depth %"
         value={stats?.avgScrollDepth ?? 0}
         max={100}
-        color="#ff9f0a"
+        color="#0071e3"
         icon={<Eye size={12} />}
       />
       <SignalBar
         label="Click Events"
         value={stats?.clickEvents ?? 0}
         max={120}
-        color="#bf5af2"
+        color="#0071e3"
         icon={<MousePointerClick size={12} />}
       />
 

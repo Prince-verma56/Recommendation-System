@@ -2,8 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 
 export function useConfusionDetect({
-  idleThresholdMs = 22000,
-  scrollThreshold = 3,
+  idleThresholdMs = 25000,
+  scrollThreshold = 4,
 }: {
   idleThresholdMs?: number;
   scrollThreshold?: number;
@@ -32,6 +32,8 @@ export function useConfusionDetect({
       reset();
     };
 
+
+    
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("click", onClick);
     reset();

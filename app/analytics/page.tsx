@@ -4,6 +4,8 @@ import { HeatmapCanvas, SessionTimeline } from "@/components/analytics/HeatmapCa
 import { Navbar } from "@/components/layout/Navbar";
 import { DynamicStatsRow } from "@/components/analytics/DynamicStatsRow";
 import { AIBehaviorSummary } from "@/components/analytics/AIBehaviorSummary";
+import { EngagementLineChart } from "@/components/analytics/EngagementLineChart";
+import { AffinityBarChart } from "@/components/analytics/AffinityBarChart";
 
 export const metadata = {
   title: "Analytics — PersonaUI",
@@ -18,11 +20,9 @@ export default async function AnalyticsPage() {
     <>
       <Navbar />
 
-
-
-      <main style={{ maxWidth: "1100px", margin: "0 auto", padding: "40px 20px 80px" }}>
-
-        {/* ── Page Header ───────────────────────────────── */}
+      <main className="w-full max-w-full overflow-x-hidden px-4 md:px-6 lg:px-8 pt-10 pb-20 mx-auto" style={{ maxWidth: "1100px" }}>
+        
+        {/* Page Header */}
         <div style={{ marginBottom: "32px" }}>
           <div style={{
             display: "inline-flex", alignItems: "center",
@@ -59,109 +59,45 @@ export default async function AnalyticsPage() {
             maxWidth: "540px",
             margin: 0,
           }}>
-            A real-time map of your behavioral fingerprint. PersonaUI uses these signals
-            to proactively reorganize your workspace before you even ask.
+            A real-time map of your behavioral fingerprint.
           </p>
         </div>
 
-        <AIBehaviorSummary />
-
-        {/* ── Stats Row — 3-col responsive grid ─────────── */}
-        <DynamicStatsRow />
-
-        {/* ── Heatmap Section ───────────────────────────── */}
-        <div className="bento-card" style={{
-          marginBottom: "16px",
-        }}>
-          <div style={{ marginBottom: "4px" }}>
-            <h2 style={{ fontSize: "17px", fontWeight: 600, margin: "0 0 6px", letterSpacing: "-0.02em" }}>
-              Time-of-Day Section Affinity
-            </h2>
-            <p style={{ fontSize: "13px", color: "rgba(var(--fg-rgb),0.4)", lineHeight: 1.55, margin: 0 }}>
-              Brighter orbs = higher engagement at that hour. PersonaUI surfaces those sections
-              first when that time window approaches next time.
-            </p>
+        {/* ── Strict 12-Column Grid ──────────────────────────── */}
+        <div className="grid grid-cols-12 gap-4">
+          
+          {/* KPI Row */}
+          <div className="col-span-12">
+            <DynamicStatsRow />
           </div>
-          <HeatmapCanvas />
-        </div>
 
-        {/* ── Session Timeline ────────────────────────────── */}
-        <div className="bento-card" style={{ marginBottom: "16px" }}>
-          <div style={{ marginBottom: "16px" }}>
-            <h2 style={{ fontSize: "17px", fontWeight: 600, margin: "0 0 6px", letterSpacing: "-0.02em" }}>
-              Recent Events
-            </h2>
-            <p style={{ fontSize: "13px", color: "rgba(var(--fg-rgb),0.4)", lineHeight: 1.55, margin: 0 }}>
-              Your latest interactions continuously flowing into the behavior log.
-            </p>
+          {/* AI Behavioral Summary (span 6) */}
+          <div className="col-span-12 lg:col-span-6 flex flex-col h-full">
+            <AIBehaviorSummary />
           </div>
-          <SessionTimeline />
-        </div>
 
-        {/* ── How It Works ──────────────────────────────── */}
-        <div className="bento-card">
-          <h2 style={{ fontSize: "17px", fontWeight: 600, margin: "0 0 16px", letterSpacing: "-0.02em" }}>
-            How PersonaUI learns
-          </h2>
+          {/* Engagement Line Chart (span 6) */}
+          <EngagementLineChart />
 
-          <div className="learn-grid">
-            {[
-              {
-                emoji: "👁️",
-                title: "Dwell Tracking",
-                desc: "Measures time spent in each visible section per session.",
-                color: "#0071e3",
-              },
-              {
-                emoji: "📜",
-                title: "Scroll Velocity",
-                desc: "Fast scrolls = skip signals. Slow scrolls = interest signals.",
-                color: "#30d158",
-              },
-              {
-                emoji: "🧠",
-                title: "Persona Mapping",
-                desc: "Classifies you as Quick Scanner, Deep Diver, or Explorer.",
-                color: "#bf5af2",
-              },
-              {
-                emoji: "⚡",
-                title: "Zero-Click Layout",
-                desc: "Rearranges sections silently — no drag-and-drop required.",
-                color: "#ff9f0a",
-              },
-            ].map(item => (
-              <div key={item.title} style={{
-                display: "flex", gap: "14px", alignItems: "flex-start",
-                padding: "16px",
-                background: "var(--bg-tertiary)",
-                borderRadius: "14px",
-                border: "0.5px solid rgba(var(--fg-rgb),0.04)",
-              }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: "10px",
-                  background: `${item.color}18`,
-                  border: `0.5px solid ${item.color}30`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: "18px", flexShrink: 0,
-                }}>
-                  {item.emoji}
-                </div>
-                <div>
-                  <div style={{ fontSize: "13px", fontWeight: 600, marginBottom: "4px", letterSpacing: "-0.01em" }}>
-                    {item.title}
-                  </div>
-                  <div style={{ fontSize: "12px", color: "var(--text-tertiary)", lineHeight: 1.55 }}>
-                    {item.desc}
-                  </div>
-                </div>
-              </div>
-            ))}
+          {/* Heatmap Canvas (span 6) */}
+          <div className="bento-card col-span-12 lg:col-span-6 flex flex-col p-5">
+            <h3 className="text-sm font-semibold tracking-tight mb-4 text-[var(--text-secondary)]">Time-of-Day Section Affinity</h3>
+            <HeatmapCanvas />
           </div>
+
+          {/* Live Event Feed (span 6) */}
+          <div className="bento-card col-span-12 lg:col-span-6 flex flex-col p-5">
+            <h3 className="text-sm font-semibold tracking-tight mb-4 text-[var(--text-secondary)]">Live Event Vector</h3>
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar">
+              <SessionTimeline />
+            </div>
+          </div>
+
+          {/* Section Affinity Chart (span 12) */}
+          <AffinityBarChart />
+
         </div>
       </main>
     </>
   );
 }
-
-
