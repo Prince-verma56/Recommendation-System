@@ -21,7 +21,7 @@ export function HourlyStrip() {
   const hourlyMax = Math.max(...hourlyData, 1);
 
   return (
-    <AppCard suppressHydrationWarning className="col-span-12 lg:col-span-8 flex flex-col justify-between h-40">
+    <AppCard suppressHydrationWarning className="col-span-12 flex flex-col justify-between h-40">
       <div className="flex justify-between items-center mb-4">
         <div className="flex items-center gap-2">
            <Clock size={14} className="text-[#0071e3]" />

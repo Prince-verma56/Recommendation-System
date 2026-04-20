@@ -119,9 +119,9 @@ export function StatsBlock({ isTop }: { isTop?: boolean } = {}) {
   ];
 
   return (
-    <div className="col-span-12 lg:col-span-4 flex flex-col">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4 gap-4">
+    <div className="col-span-12 lg:col-span-4 flex flex-col h-full pt-7">
+      {/* Header aligned vertically & horizontally with WeeklyChart AppCard padding */}
+      <div className="flex items-start justify-between mb-6 gap-4 px-7">
         <div>
           <div className="text-[10px] uppercase font-semibold tracking-wider text-[var(--text-tertiary)] mb-1">Performance Stats</div>
           <h3 className="text-sm font-bold tracking-tight">Your Metrics</h3>
@@ -137,16 +137,17 @@ export function StatsBlock({ isTop }: { isTop?: boolean } = {}) {
         )}
       </div>
 
-      {/* 2×2 real data grid */}
-      <div className="grid grid-cols-2 gap-3 md:gap-4">
+      {/* 2×2 real data grid clustered vertically */}
+      <div className="grid grid-cols-2 grid-rows-2 gap-4 flex-1">
         {dynamicStats.map((stat, i) => (
           <motion.div
             key={stat.label}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
+            className="h-full"
           >
-            <AppCard className="p-3.5 md:p-4 flex flex-col" variant={isTop ? "priority" : "default"}>
+            <AppCard className="p-3.5 md:p-4 flex flex-col h-full overflow-hidden" variant={isTop ? "priority" : "default"}>
               <div className="text-[10px] font-medium text-[var(--text-tertiary)] uppercase tracking-tight mb-2">{stat.label}</div>
               <div className="text-xl md:text-2xl font-bold tracking-tighter mb-4">
                 {stat.value}

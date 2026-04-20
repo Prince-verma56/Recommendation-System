@@ -455,3 +455,88 @@ export const getAnalyticsSummary = query({
     return summary;
   }
 });
+
+// Query: Aggregated dwell time per section — used in SectionAffinityBars
+export const getSectionAffinity = query({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    if (!userId) return [];
+    
+    const events = await ctx.db
+      .query("events")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const sections = ["stats", "activity", "oracle", "notifications"];
+    const totals: Record<string, number> = {};
+    
+    for (const s of sections) totals[s] = 0;
+    for (const e of events) {
+      if (totals[e.section] !== undefined) {
+        totals[e.section] += e.dwellMs ?? 0;
+      }
+    }
+
+    return Object.entries(totals).map(([section, dwellMs]) => ({
+      section,
+      dwellSeconds: Math.round(dwellMs / 1000)
+    })).sort((a, b) => b.dwellSeconds - a.dwellSeconds);
+  },
+});
+
+// Query: Top 3 peak activity hours — used in PeakHoursCard
+export const getPeakHours = query({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    if (!userId) return [];
+    
+    const slots = await ctx.db
+      .query("timeSlots")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const hourTotals = new Array(24).fill(0);
+    for (const s of slots) {
+      hourTotals[s.hour] += s.score;
+    }
+
+    const max = Math.max(...hourTotals, 1);
+    
+    return hourTotals
+      .map((score, h) => ({ h, score }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 3)
+      .filter(x => x.score > 0)
+      .map(({ h, score }) => {
+        const label = h < 12 ? `${h === 0 ? "12" : h}am` : h === 12 ? "12pm" : `${h - 12}pm`;
+        const pct = Math.round((score / max) * 100);
+        return { label, pct };
+      });
+  },
+});
+// Query: Combined profile data for the rich BehavioralProfileCard
+export const getUserProfileStats = query({
+  args: { userId: v.string() },
+  handler: async (ctx, { userId }) => {
+    if (!userId) return null;
+
+    const persona = await ctx.db
+      .query("personas")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .first();
+
+    const stats = await getUserStats(ctx, { userId });
+
+    // Use the same confidence logic as BehaviorPanel for consistency
+    const confidence = stats?.totalEvents ? Math.min(99, Math.round(40 + stats.totalEvents * 0.8)) : 0;
+
+    return {
+      persona: persona ? {
+        type: persona.type,
+        updatedAt: persona.updatedAt,
+      } : null,
+      stats,
+      confidence
+    };
+  },
+});

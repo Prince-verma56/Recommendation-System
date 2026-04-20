@@ -15,14 +15,7 @@ export const metadata: Metadata = {
   keywords: ['AI', 'Personalization', 'Dashboard', 'Behavioral Intelligence'],
 }
 
-function AmbientBackground() {
-  return (
-    <div className="ambient-bg">
-      <div className="ambient-blob blob-1"></div>
-      <div className="ambient-blob blob-2"></div>
-    </div>
-  );
-}
+import { BackgroundBlob } from '@/components/layout/BackgroundBlob'
 
 export default function RootLayout({
   children,
@@ -40,7 +33,7 @@ export default function RootLayout({
             disableTransitionOnChange
           >
             <ConvexClientProvider>
-              <AmbientBackground />
+              <BackgroundBlob />
               <LenisProvider>
                 {children}
               </LenisProvider>

@@ -15,12 +15,12 @@ export function AppCard({ children, className, variant = "default" }: AppCardPro
   return (
     <div 
       className={cn(
-        "relative rounded-2xl border transition-all duration-300 overflow-hidden",
-        "p-4 md:p-5", // Optimized compact padding
-        "bg-zinc-900/80 backdrop-blur-xl saturate-150", // Standard Glass
-        "border-zinc-800/60 hover:border-zinc-700/80", // Standard Border
-        variant === "priority" && "border-[#0071e3]/30 bg-[#0071e3]/5",
-        variant === "glass" && "bg-white/[0.03] backdrop-blur-2xl",
+        "relative rounded-2xl border transition-all duration-500 overflow-hidden group",
+        "p-6 md:p-7", // More spacious premium padding
+        "bg-[#0a0a0a]/90 backdrop-blur-3xl saturate-[1.8]", // High-end Glass
+        "border-zinc-800/50 hover:border-[#0071e3]/40 shadow-2xl hover:shadow-[#0071e3]/10", // Blue Hover Accent
+        variant === "priority" && "border-[#0071e3]/40 bg-[#0071e3]/[0.03]",
+        variant === "glass" && "bg-white/[0.02] backdrop-blur-2xl border-white/[0.05]",
         className
       )}
     >

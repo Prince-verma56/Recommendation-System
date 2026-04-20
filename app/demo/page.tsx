@@ -17,17 +17,6 @@ export default async function DemoPage() {
     <>
       <Navbar />
 
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: -1,
-          pointerEvents: "none",
-          background:
-            "radial-gradient(ellipse 70% 40% at 50% -5%, rgba(0,113,227,0.08) 0%, transparent 55%)",
-        }}
-      />
-
       <main className="w-full max-w-full overflow-x-hidden px-4 md:px-6 lg:px-8 pt-8 pb-28 mx-auto" style={{ maxWidth: "1280px", minHeight: "100vh" }}>
         <div style={{ marginBottom: "28px" }}>
           <div

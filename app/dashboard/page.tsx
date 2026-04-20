@@ -2,16 +2,16 @@ import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { Navbar } from "@/components/layout/Navbar";
 
+// Dashboard Components
 import { TimePredictionCard } from "@/components/dashboard/TimePredictionCard";
-import { PersonaFingerprint } from "@/components/dashboard/PersonaFingerprint";
-import { AdaptationsToday } from "@/components/dashboard/AdaptationsToday";
+import { PriorityOrderCard } from "@/components/dashboard/PriorityOrderCard";
+import { PeakHoursCard } from "@/components/dashboard/PeakHoursCard";
 import { StatsBlock } from "@/components/dashboard/StatsBlock";
-import { HourlyStrip } from "@/components/dashboard/HourlyStrip";
 import { WeeklyChart } from "@/components/dashboard/WeeklyChart";
-import { AffinityPills } from "@/components/dashboard/AffinityPills";
-import { AdaptationsLog } from "@/components/dashboard/AdaptationsLog";
+import { HourlyStrip } from "@/components/dashboard/HourlyStrip";
 import { SignalsBlock } from "@/components/dashboard/SignalsBlock";
 import { QuickActions } from "@/components/dashboard/QuickActions";
+import { AdaptationsLog } from "@/components/dashboard/AdaptationsLog";
 
 export const metadata = {
   title: "Dashboard — PersonaUI",
@@ -30,94 +30,47 @@ export default async function DashboardPage() {
   if (!userId) redirect("/sign-in");
 
   return (
-    <>
+    <div className="min-h-screen bg-[#050505] text-zinc-100">
       <Navbar />
 
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: -1,
-          pointerEvents: "none",
-          background:
-            "radial-gradient(ellipse 70% 40% at 50% -5%, rgba(0,113,227,0.08) 0%, transparent 55%)",
-        }}
-      />
-
-      <main className="w-full max-w-full overflow-x-hidden px-4 md:px-6 lg:px-8 pt-8 pb-28 mx-auto" style={{ maxWidth: "1120px", minHeight: "100vh" }}>
-        <div style={{ marginBottom: "28px" }}>
-          <div
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: "11px",
-              fontWeight: 600,
-              color: "rgba(0,113,227,0.85)",
-              letterSpacing: "0.6px",
-              textTransform: "uppercase",
-              padding: "3px 12px",
-              background: "rgba(0,113,227,0.09)",
-              border: "0.5px solid rgba(0,113,227,0.2)",
-              borderRadius: "980px",
-              marginBottom: "10px",
-            }}
-          >
-            <span
-              style={{
-                width: 5,
-                height: 5,
-                borderRadius: "50%",
-                background: "#0071e3",
-                display: "inline-block",
-              }}
-            />
-            {getGreeting()}
+      <main className="max-w-[1400px] mx-auto px-4 md:px-8 pt-24 pb-20">
+        
+        {/* Header Section */}
+        <header className="mb-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#0071e3]/10 border border-[#0071e3]/20 rounded-full mb-4">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] shadow-[0_0_8px_#0071e3]" />
+            <span className="text-[10px] font-bold text-[#2997ff] uppercase tracking-widest">{getGreeting()}</span>
           </div>
-          <h1
-            style={{
-              fontSize: "clamp(26px, 3.5vw, 38px)",
-              fontWeight: 700,
-              letterSpacing: "-0.03em",
-              lineHeight: 1.1,
-              margin: "0 0 6px",
-              background:
-                "linear-gradient(135deg, var(--text-primary) 0%, rgba(var(--fg-rgb),0.55) 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
-          >
-            Behavioral Intelligence Hub
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-2">
+            Intelligence Hub
           </h1>
-          <p
-            style={{
-              fontSize: "13px",
-              color: "rgba(var(--fg-rgb),0.4)",
-              margin: 0,
-              fontWeight: 400,
-            }}
-          >
-            A real-time reflection of your focus, adaptations, and engagement rhythms.
+          <p className="text-zinc-500 text-sm md:text-base max-w-2xl leading-relaxed">
+            Your interface is dynamically evolving based on your real-time behavioral signals, focus duration, and interaction rhythms.
           </p>
-        </div>
+        </header>
 
         {/* ── Strict 12-Column Bento Grid ────────────────────── */}
-        <div className="grid grid-cols-12 gap-5 md:gap-6">
+        <div className="grid grid-cols-12 gap-6 items-stretch">
+          
+          {/* Row 1: The "Brain" (Total 12) */}
           <TimePredictionCard />
-          <AdaptationsToday />
-          
+          <PriorityOrderCard />
+          <PeakHoursCard />
+
+          {/* Row 2: Deep Analytics (Total 12) */}
           <StatsBlock />
-          <HourlyStrip />
-          
           <WeeklyChart />
-          <AffinityPills />
-          
-          <AdaptationsLog />
+
+          {/* Row 3: Temporal Rhythm (Full Width) */}
+          <HourlyStrip />
+
+          {/* Row 4: Operational Signals (Total 12) */}
           <SignalsBlock />
           <QuickActions />
+          <AdaptationsLog />
+
         </div>
       </main>
-    </>
+    </div>
   );
 }
