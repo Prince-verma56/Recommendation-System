@@ -1,7 +1,7 @@
 import React from "react";
 import { cn } from "@/lib/utils";
 
-interface AppCardProps {
+interface AppCardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   className?: string;
   variant?: "default" | "priority" | "glass";
@@ -11,9 +11,10 @@ interface AppCardProps {
  * PersonaUI Unified Card Component
  * Standardizes padding, glassmorphism, and border styles across the app.
  */
-export function AppCard({ children, className, variant = "default" }: AppCardProps) {
+export function AppCard({ children, className, variant = "default", ...rest }: AppCardProps) {
   return (
     <div 
+      {...rest}
       className={cn(
         "relative rounded-2xl border transition-all duration-500 overflow-hidden group",
         "p-6 md:p-7", // More spacious premium padding

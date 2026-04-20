@@ -27,7 +27,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
-        <body className={`${inter.className} antialiased text-primary overflow-x-hidden min-h-screen`}>
+        <body suppressHydrationWarning className={`${inter.className} antialiased text-primary overflow-x-hidden min-h-screen`}>
           <ThemeProvider 
             attribute="class" 
             defaultTheme="system" 

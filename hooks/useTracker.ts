@@ -3,6 +3,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useUser } from "@clerk/nextjs";
+import { usePathname } from "next/navigation";
 
 interface TrackerOptions {
   section: string;
@@ -10,6 +11,7 @@ interface TrackerOptions {
 
 export function useTracker({ section }: TrackerOptions) {
   const { user } = useUser();
+  const pathname = usePathname();
   const logEvent = useMutation(api.events.logEvent);
   const computePersona = useMutation(api.personas.computePersonaAndSlots);
   const dwellStart = useRef<number>(Date.now());
@@ -17,9 +19,10 @@ export function useTracker({ section }: TrackerOptions) {
   const scrollSpeeds = useRef<number[]>([]);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const idleStart = useRef<number>(Date.now());
+  const isLandingPage = pathname === "/";
 
   const flush = useCallback(async (action: string) => {
-    if (!user?.id) return;
+    if (!user?.id || isLandingPage) return;
     const now = Date.now();
     const dwellMs = now - dwellStart.current;
     
@@ -53,9 +56,10 @@ export function useTracker({ section }: TrackerOptions) {
     await computePersona({ userId: user.id });
     scrollSpeeds.current = [];
     dwellStart.current = Date.now();
-  }, [user?.id, section, logEvent, computePersona]);
+  }, [user?.id, section, logEvent, computePersona, isLandingPage]);
 
   useEffect(() => {
+    if (isLandingPage) return;
     let lastTime = Date.now();
     
     const handleScroll = () => {
@@ -88,5 +92,5 @@ export function useTracker({ section }: TrackerOptions) {
       clearTimeout(idleTimer.current);
       flush("dwell"); // flush on unmount/section change
     };
-  }, [flush]);
+  }, [flush, isLandingPage]);
 }

@@ -525,7 +525,32 @@ export const getUserProfileStats = query({
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .first();
 
-    const stats = await getUserStats(ctx, { userId });
+    const events = await ctx.db
+      .query("events")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+
+    const stats = events.length === 0 ? null : (() => {
+      const totalEvents = events.length;
+      const avgDwellMs = Math.round(
+        events.reduce((s, e) => s + (e.dwellMs ?? 0), 0) / events.length
+      );
+      const avgScrollDepth = Math.round(
+        events.reduce((s, e) => s + (e.scrollDepth ?? 0), 0) / events.length
+      );
+      const idleEvents = events.filter((e) => e.action === "idle").length;
+      const clickEvents = events.filter((e) => e.action === "click").length;
+
+      return {
+        totalEvents,
+        avgDwellMs,
+        avgScrollDepth,
+        idleEvents,
+        clickEvents,
+        adaptations: persona?.sessionCount ?? 0,
+        confusionCount: persona?.confusionCount ?? 0,
+      };
+    })();
 
     // Use the same confidence logic as BehaviorPanel for consistency
     const confidence = stats?.totalEvents ? Math.min(99, Math.round(40 + stats.totalEvents * 0.8)) : 0;

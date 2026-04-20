@@ -1,17 +1,24 @@
 'use client';
-import { motion, useMotionValue, useSpring, animate } from 'framer-motion';
-import { useEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
+import { memo, useEffect, useRef, useState } from 'react';
 import { Activity, Brain, Target, Zap } from 'lucide-react';
 
 function AnimatedCounter({ to, duration = 1.8 }: { to: number; duration?: number }) {
   const [display, setDisplay] = useState(0);
-  const ref = useRef(false);
+  const hasStartedRef = useRef(false);
+  const rafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   return (
     <motion.span
       onViewportEnter={() => {
-        if (ref.current) return;
-        ref.current = true;
+        if (hasStartedRef.current) return;
+        hasStartedRef.current = true;
         const start = Date.now();
         const tick = () => {
           const elapsed = (Date.now() - start) / 1000;
@@ -19,9 +26,11 @@ function AnimatedCounter({ to, duration = 1.8 }: { to: number; duration?: number
           // ease-out-expo
           const eased = 1 - Math.pow(2, -10 * progress);
           setDisplay(Math.round(eased * to));
-          if (progress < 1) requestAnimationFrame(tick);
+          if (progress < 1) {
+            rafRef.current = requestAnimationFrame(tick);
+          }
         };
-        requestAnimationFrame(tick);
+        rafRef.current = requestAnimationFrame(tick);
       }}
     >
       {display.toLocaleString()}
@@ -42,8 +51,21 @@ export default function BehaviorShowcaseSection() {
   }, []);
 
   return (
-    <section id="showcase" className="relative z-10 py-28 md:py-36 px-6 md:px-12">
-      <div className="max-w-7xl mx-auto">
+    <section id="showcase" className="relative z-10 py-28 md:py-36 px-6 md:px-12 overflow-hidden bg-gradient-to-b from-black via-zinc-950 to-black">
+
+      {/* Ambient Glow Orbs — center-sides */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/2 -left-60 -translate-y-1/2 h-[600px] w-[500px] rounded-full bg-emerald-500/4 blur-[140px]" />
+        <div className="absolute top-1/2 -right-60 -translate-y-1/2 h-[600px] w-[500px] rounded-full bg-[#0071e3]/5 blur-[140px]" />
+      </div>
+
+      {/* --- BACKGROUND IMAGE (uncomment to enable) ---
+      <div
+        className="absolute inset-0 bg-cover bg-center opacity-20"
+        style={{ backgroundImage: 'url("/images/showcase-bg.jpg")' }}
+      />
+      --- END BACKGROUND IMAGE --- */}
+      <div className="relative z-10 max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
           className="text-center mb-20"
@@ -177,7 +199,7 @@ export default function BehaviorShowcaseSection() {
   );
 }
 
-function MetricCard({
+const MetricCard = memo(function MetricCard({
   icon,
   label,
   delay,
@@ -219,4 +241,4 @@ function MetricCard({
       <div className="flex flex-col flex-1">{children}</div>
     </motion.div>
   );
-}
+});

@@ -18,8 +18,12 @@ export function DynamicStatsRow() {
     api.personas.getPersona,
     user?.id ? { userId: user.id } : "skip"
   );
+  const preferences = useQuery(
+    api.preferences.getPreferences,
+    user?.id ? { userId: user.id } : "skip"
+  );
 
-  const activePersona = persona?.override || persona?.persona || "Scanner";
+  const activePersona = preferences?.personaOverride ?? persona?.type ?? "Scanner";
 
   const statItems = [
     { label: "Total Events", value: stats?.totalEvents ?? "—", sub: "Recorded signals", color: "#ff453a" },

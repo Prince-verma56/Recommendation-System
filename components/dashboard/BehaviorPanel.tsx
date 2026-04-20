@@ -29,6 +29,7 @@ export function BehaviorPanel() {
   const userId = user?.id || "skip";
 
   const persona = useQuery(api.personas.getPersona, userId !== "skip" ? { userId } : "skip");
+  const preferences = useQuery(api.preferences.getPreferences, userId !== "skip" ? { userId } : "skip");
   const stats = useQuery(api.personas.getUserStats, userId !== "skip" ? { userId } : "skip");
   const scored = useQuery(api.personas.getRankedSectionsByScore, userId !== "skip" ? { userId } : "skip");
   const seedDemoData = useMutation(api.seed.seedDemoData);
@@ -36,7 +37,7 @@ export function BehaviorPanel() {
 
   const [isResetting, setIsResetting] = useState(false);
 
-  const activePersona = persona?.override || persona?.type || "Explorer";
+  const activePersona = preferences?.personaOverride ?? persona?.type ?? "Explorer";
   const confidence = stats?.totalEvents ? Math.min(99, Math.round(40 + stats.totalEvents * 0.8)) : 0;
   const peakAffinityId = scored && scored[0] ? scored[0] : null;
   const peakAffinityLabel = peakAffinityId ? (SECTION_LABELS[peakAffinityId] || peakAffinityId.replace(/_/g, " ")) : "Analyzing...";

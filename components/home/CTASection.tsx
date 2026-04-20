@@ -10,13 +10,22 @@ export default function CTASection() {
       whileInView={{ opacity: 1 }}
       viewport={{ once: true }}
       transition={{ duration: 0.8 }}
-      className="relative z-10 py-40 px-6 text-center overflow-hidden"
+      className="relative z-10 py-40 px-6 text-center overflow-hidden bg-gradient-to-b from-zinc-950 via-black to-zinc-950"
     >
-      {/* Background glow effect */}
+      {/* Background glow orbs — centered radial */}
       <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#0071e3]/10 rounded-full blur-[160px]" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#0071e3]/15 rounded-full blur-[80px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-[#0071e3]/8 rounded-full blur-[180px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[300px] h-[300px] bg-[#0071e3]/20 rounded-full blur-[80px]" />
+        <div className="absolute -top-40 -right-40 h-[500px] w-[500px] rounded-full bg-[#2997ff]/4 blur-[130px]" />
+        <div className="absolute -bottom-40 -left-40 h-[500px] w-[500px] rounded-full bg-[#7f77dd]/4 blur-[130px]" />
       </div>
+
+      {/* --- BACKGROUND IMAGE (uncomment to enable) ---
+      <div
+        className="absolute inset-0 bg-cover bg-center opacity-15"
+        style={{ backgroundImage: 'url("/images/cta-bg.jpg")' }}
+      />
+      --- END BACKGROUND IMAGE --- */}
 
       {/* Border top accent */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-px h-24 bg-gradient-to-b from-transparent to-[#0071e3]/50" />
